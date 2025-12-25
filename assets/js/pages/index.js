@@ -1,404 +1,267 @@
-// File: assets/js/pages/index.js
-import { db } from '../firebase/config.js';
-// 1. IMPORT MODUL UI (Penting)
-import { showToast, showConfirm, showPrompt } from '../utils/ui.js'; 
-import { 
-    collection, getDocs, doc, getDoc, setDoc, query, where, updateDoc, Timestamp 
-} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import { attendanceService } from '../firebase/attendance-service.js';
+import { adminService } from '../firebase/admin-service.js';
+import { showToast, showConfirm, showPrompt } from '../utils/ui.js';
+import { exportToPDF, exportMonthlyPDF } from '../utils/pdf-helper.js';
 
-// --- GLOBAL VARIABLES ---
-let localRekapData = null; 
-let currentDocId = null;
-let isDirty = false;
+let state = {
+    localData: null,
+    currentDocId: null,
+    isDirty: false,
+    monthlyCache: { master: null, reports: null, monthStr: null }
+};
 
-// Setup Default Date
-const datePicker = document.getElementById('datePicker');
-if(datePicker) datePicker.valueAsDate = new Date();
-
-// Load Dropdown Kelas
+// --- INIT ---
 (async () => {
-    try {
-        const snap = await getDocs(collection(db, "kelas"));
-        const picker = document.getElementById('kelasPicker');
-        if(!picker) return;
+    const datePicker = document.getElementById('datePicker');
+    if(datePicker) datePicker.valueAsDate = new Date();
+
+    const picker = document.getElementById('kelasPicker');
+    if(picker) {
+        try {
+            const classes = await adminService.getClasses();
+            classes.sort((a,b) => a.id.localeCompare(b.id, undefined, {numeric: true}));
+            classes.forEach(c => picker.add(new Option(c.id, c.id)));
+        } catch(e) { console.error("Load kelas error:", e); }
+    }
+    
+    // Recovery Logic
+    const savedDraft = localStorage.getItem('absensi_draft');
+    if(savedDraft) {
+        showToast("Draft tersimpan ditemukan!", "info");
+        state.localData = JSON.parse(savedDraft);
+        if(datePicker) datePicker.value = state.localData.tanggal;
+        if(picker) picker.value = state.localData.kelas;
+        state.currentDocId = `${state.localData.tanggal}_${state.localData.kelas}`;
         
-        snap.forEach(d => {
-            let opt = document.createElement('option');
-            opt.value = d.id; 
-            opt.text = d.data().nama_kelas;
-            picker.appendChild(opt);
-        });
-    } catch (e) {
-        showToast("Gagal memuat list kelas: " + e.message, "error");
+        ['tabelAbsensi', 'actionButtons'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+        document.getElementById('loadingText').style.display = 'none';
+        
+        renderTable();
+        setDirty(true); 
     }
 })();
 
-// --- CORE FUNCTION: LOAD DATA ---
-window.loadRekapData = async function() {
+// --- LOGIC UTAMA ---
+window.loadRekapData = async () => {
     const tgl = document.getElementById('datePicker').value;
     const kls = document.getElementById('kelasPicker').value;
     const loading = document.getElementById('loadingText');
-    const table = document.getElementById('tabelAbsensi');
-    const actionBtns = document.getElementById('actionButtons');
-    const lockMsg = document.getElementById('lockedMessage');
 
-    // [REVISI] Ganti alert dengan Toast Warning
-    if(!tgl || !kls) return showToast("Pilih Tanggal & Kelas terlebih dahulu!", "warning");
-
-    // Reset UI
-    if(table) table.style.display = 'none';
-    if(actionBtns) actionBtns.classList.add('hidden'); // Pakai class Tailwind 'hidden'
-    if(lockMsg) lockMsg.classList.add('hidden');
+    if (!tgl || !kls) return showToast("Pilih Tanggal & Kelas!", "warning");
+    state.currentDocId = `${tgl}_${kls}`;
     
-    setDirty(false);
-    if(loading) {
-        loading.innerText = "⏳ Sedang memuat data...";
-        loading.style.display = 'block';
-    }
-
-    currentDocId = `${tgl}_${kls}`;
-    const rekapRef = doc(db, "rekap_absensi", currentDocId);
+    document.getElementById('tabelAbsensi').classList.add('hidden');
+    document.getElementById('actionButtons').classList.add('hidden');
+    if(loading) { loading.style.display = 'block'; loading.innerText = "⏳ Mengambil data..."; }
 
     try {
-        let rekapSnap = await getDoc(rekapRef);
-
-        if (!rekapSnap.exists()) {
-            console.log("Data baru, ambil master siswa...");
-            const q = query(collection(db, "siswa"), where("id_kelas", "==", kls), where("status_aktif", "==", "Aktif"));
-            const siswaSnap = await getDocs(q);
-
-            if(siswaSnap.empty) {
-                loading.innerText = "Kelas ini belum memiliki data siswa.";
-                // [REVISI] Error Toast
-                return showToast("Kelas ini kosong (Master Data Siswa tidak ditemukan)!", "error");
-            }
-
-            let mapSiswa = {};
-            siswaSnap.forEach(s => {
-                mapSiswa[s.id] = { nama: s.data().nama_siswa, nis: s.data().nis, status: "Hadir" };
-            });
-
-            localRekapData = {
-                tanggal: tgl,
-                kelas: kls,
-                siswa: mapSiswa,
-                is_locked: false,
-                created_at: null 
-            };
-            setDirty(true); 
-            showToast("Membuat lembar absensi baru", "info");
-
+        if(state.isDirty && state.localData?.tanggal === tgl && state.localData?.kelas === kls) {
+            console.log("Using dirty local data");
         } else {
-            console.log("Data loaded form DB...");
-            localRekapData = rekapSnap.data();
+            let data = await attendanceService.getRekap(state.currentDocId);
+            if (!data) {
+                const master = await attendanceService.getMasterSiswa(kls);
+                if (Object.keys(master).length === 0) {
+                    if(loading) loading.innerText = "Kelas Kosong";
+                    return showToast("Data siswa tidak ditemukan!", "error");
+                }
+                data = { tanggal: tgl, kelas: kls, siswa: master, is_locked: false };
+                setDirty(true); showToast("Lembar baru dibuat", "info");
+            }
+            state.localData = data;
         }
-
-        renderTable(localRekapData);
         
         if(loading) loading.style.display = 'none';
-        if(table) table.style.display = 'table';
-        if(actionBtns) actionBtns.classList.remove('hidden'); // Munculkan tombol
-
-        handleLockState();
+        document.getElementById('tabelAbsensi').classList.remove('hidden');
+        document.getElementById('actionButtons').classList.remove('hidden');
+        renderTable();
+        handleLockState(); // Update UI tombol
 
     } catch (e) {
-        console.error(e);
-        if(loading) loading.innerText = "Error";
-        showToast("Terjadi kesalahan: " + e.message, "error");
+        if(loading) loading.innerText = "Error mengambil data.";
+        showToast(e.message, "error");
     }
 };
 
-function handleLockState() {
-    const btnLock = document.getElementById('btnLock');
-    const btnSave = document.getElementById('btnSave');
-    const btnExport = document.getElementById('btnExport'); // <--- Ambil elemen tombol PDF
-    const lockMsg = document.getElementById('lockedMessage');
-
-    if(localRekapData.is_locked) {
-        // --- KONDISI DATA SUDAH TERKUNCI (FINAL) ---
-        if(lockMsg) lockMsg.classList.remove('hidden');
-        
-        // Sembunyikan tombol edit
-        if(btnLock) btnLock.style.display = 'none';
-        if(btnSave) btnSave.style.display = 'none';
-        
-        // MUNCULKAN TOMBOL PDF
-        if(btnExport) btnExport.style.display = 'inline-block'; 
-
-        disableAllInputs();
-
-    } else {
-        // --- KONDISI DATA MASIH DRAFT (EDITABLE) ---
-        if(lockMsg) lockMsg.classList.add('hidden');
-        
-        // Munculkan tombol edit
-        if(btnLock) btnLock.style.display = 'inline-block';
-        if(btnSave) btnSave.style.display = 'inline-block';
-        
-        // SEMBUNYIKAN TOMBOL PDF (Belum boleh print)
-        if(btnExport) btnExport.style.display = 'none'; 
-
-        // Logic tombol Kunci (tetap sama)
-        btnLock.onclick = () => {
-            if(isDirty) return showToast("Simpan perubahan dulu sebelum mengunci data!", "warning");
-            
-            showConfirm("Apakah Anda yakin ingin mengunci data ini? Data yang dikunci tidak dapat diedit lagi.", async () => {
-                try {
-                    await updateDoc(doc(db, "rekap_absensi", currentDocId), { 
-                        is_locked: true, 
-                        locked_at: Timestamp.now()
-                    });
-                    showToast("Data berhasil dikunci!", "success");
-                    loadRekapData(); // Refresh UI agar tombol PDF muncul
-                } catch (e) {
-                    showToast("Gagal mengunci: " + e.message, "error");
-                }
-            });
-        };
-    }
-}
-
-function renderTable(data) {
+function renderTable() {
     const tbody = document.getElementById('tbodySiswa');
-    if(!tbody) return;
-    tbody.innerHTML = '';
-    
-    const siswaMap = data.siswa;
-    const sortedKeys = Object.keys(siswaMap).sort((a,b) => siswaMap[a].nama.localeCompare(siswaMap[b].nama));
+    const { siswa } = state.localData;
+    const sortedKeys = Object.keys(siswa).sort((a,b) => siswa[a].nama.localeCompare(siswa[b].nama));
 
-    sortedKeys.forEach(siswaId => {
-        const s = siswaMap[siswaId];
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b border-gray-100 dark:border-gray-700";
-        
-        // Cek apakah ada keterangan?
-        const keteranganHTML = s.keterangan && s.keterangan !== '-' 
-            ? `<div class="mt-1 text-xs text-amber-600 dark:text-amber-400 italic">📝 "${s.keterangan}"</div>` 
-            : '';
-
-        tr.innerHTML = `
+    tbody.innerHTML = sortedKeys.map(id => {
+        const s = siswa[id];
+        return `
+        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
             <td class="p-4 align-top">
-                <div class="font-bold text-gray-800 dark:text-gray-100">${s.nama}</div>
-                <div class="text-xs text-gray-500 font-mono">${s.nis || '-'}</div>
-                ${keteranganHTML} </td>
+                <div class="font-bold text-gray-800 dark:text-gray-200">${s.nama}</div>
+                <div class="text-xs text-gray-500 font-mono mb-1">${s.nis || '-'}</div>
+                ${s.keterangan && s.keterangan !== '-' ? `<span class="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">📝 ${s.keterangan}</span>` : ''}
+            </td>
             <td class="p-4 align-top">
                 <div class="flex flex-wrap gap-2">
-                    ${renderRadio(siswaId, 'Hadir', s.status)}
-                    ${renderRadio(siswaId, 'Sakit', s.status)}
-                    ${renderRadio(siswaId, 'Izin', s.status)}
-                    ${renderRadio(siswaId, 'Alpa', s.status)}
+                    ${['Hadir', 'Sakit', 'Izin', 'Alpa'].map(st => `
+                        <button onclick="updateStatus('${id}', '${st}')" 
+                           class="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm transition-all transform active:scale-95
+                           ${s.status === st ? _getColor(st) : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600'}">
+                           ${st}
+                        </button>
+                    `).join('')}
                 </div>
             </td>
-        `;
-        tbody.appendChild(tr);
-    });
+        </tr>`;
+    }).join('');
 }
 
-// Helper render radio button cantik (Tailwind)
-function renderRadio(name, value, currentStatus) {
-    const isChecked = currentStatus === value ? 'checked' : '';
-    let colorClass = "";
-    if(value === 'Hadir') colorClass = "peer-checked:bg-green-600 peer-checked:text-white";
-    if(value === 'Sakit') colorClass = "peer-checked:bg-yellow-500 peer-checked:text-white";
-    if(value === 'Izin') colorClass = "peer-checked:bg-blue-500 peer-checked:text-white";
-    if(value === 'Alpa') colorClass = "peer-checked:bg-red-600 peer-checked:text-white";
-
-    return `
-    <label class="cursor-pointer">
-        <input type="radio" name="${name}" value="${value}" ${isChecked} onchange="updateStatusLocal('${name}', '${value}')" class="peer sr-only">
-        <span class="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-xs font-bold transition-all hover:bg-gray-100 dark:hover:bg-gray-700 select-none ${colorClass}">
-            ${value}
-        </span>
-    </label>
-    `;
+function _getColor(st) {
+    const c = { 
+        Hadir: 'bg-green-600 text-white ring-green-200', 
+        Sakit: 'bg-yellow-500 text-white ring-yellow-200', 
+        Izin: 'bg-blue-600 text-white ring-blue-200', 
+        Alpa: 'bg-red-600 text-white ring-red-200' 
+    };
+    return `${c[st]} border-${c[st].split(' ')[0].replace('bg-', '')} ring-2 dark:ring-opacity-20`;
 }
 
-window.updateStatusLocal = function(siswaId, newStatus) {
-    if(!localRekapData) return;
-    
-    // Cek jika status berubah
-    if(localRekapData.siswa[siswaId].status !== newStatus) {
-        
-        // Logic Khusus: Izin atau Alpa minta keterangan
-        if(newStatus === 'Izin' || newStatus === 'Alpa') {
-            
-            showPrompt(`Masukkan alasan untuk status ${newStatus}:`, (keterangan) => {
-                // Callback ini jalan setelah user klik Simpan/Skip
-                localRekapData.siswa[siswaId].status = newStatus;
-                localRekapData.siswa[siswaId].keterangan = keterangan; // Simpan keterangan
-                
-                setDirty(true);
-                renderTable(localRekapData); // Render ulang agar teks muncul
-            });
+window.updateStatus = (id, newStatus) => {
+    if (state.localData.is_locked) return showToast("🔒 Data terkunci!", "warning");
+    const s = state.localData.siswa[id];
+    const update = () => { setDirty(true); renderTable(); localStorage.setItem('absensi_draft', JSON.stringify(state.localData)); };
 
-        } else {
-            // Kalau Hadir/Sakit, kita reset keterangannya jadi '-' atau kosong
-            localRekapData.siswa[siswaId].status = newStatus;
-            localRekapData.siswa[siswaId].keterangan = '-'; 
-            
-            setDirty(true);
-            renderTable(localRekapData); // Render ulang (opsional, untuk update visual radio)
-        }
-    }
+    if (['Izin', 'Alpa'].includes(newStatus)) {
+        showPrompt(`Alasan ${newStatus}:`, (ket) => { s.status = newStatus; s.keterangan = ket || '-'; update(); });
+    } else { s.status = newStatus; s.keterangan = '-'; update(); }
 };
 
-window.saveDataToFirestore = function() {
-    // Validasi awal
-    if(!currentDocId || !localRekapData) return;
-    
-    // Gunakan showConfirm dari ui.js
-    showConfirm("Apakah Anda yakin ingin menyimpan perubahan data absensi ini ke database?", async () => {
-        const btnSave = document.getElementById('btnSave');
-        
+window.saveDataToFirestore = async () => {
+    showConfirm("Simpan data?", async () => {
+        const btn = document.getElementById('btnSave');
         try {
-            // UI Feedback: Loading State
-            btnSave.innerText = "⏳ Menyimpan...";
-            btnSave.disabled = true;
-
-            // Pastikan timestamp ada untuk data baru
-            if(!localRekapData.created_at) {
-                localRekapData.created_at = Timestamp.now();
-            }
-
-            // Eksekusi Simpan ke Firestore
-            await setDoc(doc(db, "rekap_absensi", currentDocId), localRekapData, { merge: true });
-            
-            // UI Feedback: Sukses
-            showToast("Data berhasil disimpan ke server!", "success");
-            setDirty(false); // Reset indikator 'unsaved changes'
-
-        } catch(e) { 
-            console.error(e); 
-            showToast("Gagal menyimpan: " + e.message, "error"); 
-        } finally { 
-            // UI Feedback: Reset Tombol
-            btnSave.innerText = "💾 SIMPAN"; 
-            btnSave.disabled = false; 
-        }
+            btn.innerText = "⏳ Saving..."; btn.disabled = true;
+            await attendanceService.saveRekap(state.currentDocId, state.localData);
+            showToast("✅ Data Tersimpan!", "success");
+            setDirty(false); localStorage.removeItem('absensi_draft');
+        } catch(e) { showToast("Gagal: " + e.message, "error"); } 
+        finally { btn.innerText = "💾 SIMPAN"; btn.disabled = false; }
     });
 };
 
-function setDirty(status) {
-    isDirty = status;
-    const msg = document.getElementById('unsavedMsg');
-    if(msg) {
-        if(status) msg.classList.remove('hidden');
-        else msg.classList.add('hidden');
-    }
-}
-
-function disableAllInputs() {
-    document.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = true);
-}
-
-// Export PDF (Logic tetap sama)
-window.exportToPDF = function() {
-    // 1. Validasi Data
-    if (!localRekapData || !localRekapData.siswa) {
-        return showToast("Data absensi belum dimuat!", "error");
+// --- EXPORT PDF (UPDATE: CEK KUNCI) ---
+window.exportToPDF = () => {
+    if (!state.localData) return;
+    
+    // [BARU] Validasi Lock
+    if (!state.localData.is_locked) {
+        return showToast("⚠️ Kunci data terlebih dahulu sebelum download PDF!", "warning");
     }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Ambil Info Header
-    const tgl = document.getElementById('datePicker').value;
-    const klsEl = document.getElementById('kelasPicker');
-    const klsText = klsEl.options[klsEl.selectedIndex].text;
-    
-    // --- HEADER LAPORAN ---
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("LAPORAN ABSENSI HARIAN", 105, 20, { align: "center" });
-    
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Kelas       : ${klsText}`, 14, 35);
-    doc.text(`Tanggal     : ${tgl}`, 14, 41);
+    const klsText = document.getElementById('kelasPicker').value;
+    exportToPDF(state.localData, klsText);
+};
 
-    // --- HITUNG STATISTIK (Hadir, Sakit, dll) ---
-    let stats = { Hadir: 0, Sakit: 0, Izin: 0, Alpa: 0 };
-    
-    // Persiapkan Data Baris (Ambil langsung dari localRekapData)
-    const siswaMap = localRekapData.siswa;
-    // Sort berdasarkan nama
-    const sortedKeys = Object.keys(siswaMap).sort((a, b) => 
-        siswaMap[a].nama.localeCompare(siswaMap[b].nama)
-    );
-    
-    const rows = sortedKeys.map((key, index) => {
-        const s = siswaMap[key];
-        
-        // Update Statistik
-        if (stats[s.status] !== undefined) stats[s.status]++;
-        
-        return [
-            index + 1,              // No
-            s.nis || '-',           // NIS
-            s.nama,                 // Nama Lengkap
-            s.status,               // Status
-            s.keterangan || '-'     // Keterangan
-        ];
-    });
+// --- UTILS & LOCK ---
+function setDirty(val) {
+    state.isDirty = val;
+    document.getElementById('unsavedMsg')?.classList.toggle('hidden', !val);
+}
 
-    // Tampilkan Statistik di Header
-    doc.setFont("helvetica", "bold");
-    doc.text(
-        `Ringkasan: Hadir (${stats.Hadir}) | Sakit (${stats.Sakit}) | Izin (${stats.Izin}) | Alpa (${stats.Alpa})`, 
-        14, 48
-    );
+function handleLockState() {
+    const isLocked = state.localData.is_locked;
+    const [msg, btnSave, btnLock, btnPdf] = ['lockedMessage', 'btnSave', 'btnLock', 'btnExport'].map(id => document.getElementById(id));
 
-    // --- RENDER TABEL ---
-    doc.autoTable({
-        startY: 55,
-        head: [['No', 'NIS', 'Nama Siswa', 'Status', 'Keterangan']],
-        body: rows,
-        theme: 'grid', // Tampilan grid kotak-kotak rapi
-        headStyles: { 
-            fillColor: [55, 65, 81], // Warna header abu gelap (sesuai tema UI)
-            textColor: 255,
-            halign: 'center',
-            fontStyle: 'bold'
-        },
-        columnStyles: {
-            0: { halign: 'center', cellWidth: 10 }, // No
-            1: { halign: 'center', cellWidth: 25 }, // NIS
-            3: { halign: 'center', cellWidth: 25 }, // Status
-            4: { cellWidth: 'auto' }                // Keterangan (Flexible)
-        },
-        styles: { 
-            fontSize: 10, 
-            cellPadding: 3,
-            valign: 'middle'
-        },
-        // Mewarnai baris berdasarkan status (Visual Feedback di PDF)
-        didParseCell: function(data) {
-            if (data.section === 'body' && data.column.index === 3) {
-                const status = data.cell.raw;
-                if (status === 'Sakit') data.cell.styles.textColor = [202, 138, 4]; // Kuning gelap
-                if (status === 'Izin') data.cell.styles.textColor = [37, 99, 235];  // Biru
-                if (status === 'Alpa') data.cell.styles.textColor = [220, 38, 38];  // Merah
-            }
+    if(msg) msg.classList.toggle('hidden', !isLocked);
+    if(btnSave) btnSave.style.display = isLocked ? 'none' : 'block';
+    if(btnLock) btnLock.style.display = isLocked ? 'none' : 'block';
+    
+    // [BARU] Visual Feedback untuk Tombol PDF
+    if(btnPdf) {
+        if(isLocked) {
+            btnPdf.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            btnPdf.classList.add('opacity-50', 'cursor-not-allowed');
         }
-    });
-
-    // --- AREA TANDA TANGAN ---
-    // Cek posisi Y terakhir agar tidak menabrak tabel
-    const finalY = doc.lastAutoTable.finalY + 20;
-    
-    // Jika terlalu bawah, pindah halaman
-    if (finalY > 250) {
-        doc.addPage();
-        doc.text("Mengetahui,", 140, 20);
-        doc.text("Wali Kelas / Guru Piket", 140, 25);
-        doc.text("( ..................................... )", 140, 50);
-    } else {
-        doc.text("Mengetahui,", 140, finalY);
-        doc.text("Wali Kelas / Guru Piket", 140, finalY + 5);
-        doc.text("( ..................................... )", 140, finalY + 30);
     }
+}
 
-    // --- SIMPAN FILE ---
-    doc.save(`Laporan_Absensi_${klsText}_${tgl}.pdf`);
-    showToast("PDF berhasil diunduh!", "success");
+document.getElementById('btnLock').onclick = () => {
+    if(state.isDirty) return showToast("Simpan perubahan dulu!", "warning");
+    showConfirm("Kunci data? Data tidak bisa diedit lagi.", async () => {
+        await attendanceService.lockRekap(state.currentDocId);
+        state.localData.is_locked = true;
+        handleLockState();
+        showToast("Data Dikunci!", "success");
+    });
+};
+
+// --- MODAL BULANAN ---
+window.openMonthlyModal = () => {
+    const modal = document.getElementById('modalMonthly');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    const picker = document.getElementById('monthPickerReport');
+    if (picker && !picker.value) picker.value = new Date().toISOString().slice(0, 7);
+};
+
+window.closeMonthlyModal = () => document.getElementById('modalMonthly')?.classList.add('hidden');
+
+window.loadMonthlyReport = async () => {
+    const [kls, month, tbody, thead, btnPrint] = ['kelasPicker', 'monthPickerReport', 'tbodyBulanan', 'headerRowBulanan', 'btnPrintMonthly'].map(id => document.getElementById(id));
+    if (!kls.value || !month.value) return showToast("Pilih Kelas & Bulan!", "warning");
+
+    tbody.innerHTML = '<tr><td colspan="40" class="p-8 text-center text-gray-500">⏳ Memproses data...</td></tr>';
+    if(btnPrint) btnPrint.style.display = 'none';
+
+    try {
+        const [master, reports] = await Promise.all([attendanceService.getMasterSiswa(kls.value), attendanceService.getMonthlyReport(kls.value, month.value)]);
+        state.monthlyCache = { master, reports, monthStr: month.value };
+        
+        const days = new Date(month.value.split('-')[0], month.value.split('-')[1], 0).getDate();
+        
+        // Render Header
+        let head = '<th class="p-3 sticky left-0 bg-gray-100 dark:bg-gray-700 z-30 border dark:border-gray-600 min-w-[180px] shadow-sm">Nama Siswa</th>';
+        for (let i = 1; i <= days; i++) head += `<th class="p-1 text-center w-8 border dark:border-gray-600 text-[10px] text-gray-500">${i}</th>`;
+        thead.innerHTML = head + '<th class="p-2 border bg-green-50 dark:bg-green-900/20 text-green-700 font-bold">H</th><th class="p-2 border bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 font-bold">S</th><th class="p-2 border bg-blue-50 dark:bg-blue-900/20 text-blue-700 font-bold">I</th><th class="p-2 border bg-red-50 dark:bg-red-900/20 text-red-700 font-bold">A</th>';
+
+        // Mapping Data
+        let map = {};
+        Object.keys(master).forEach(id => map[id] = Array(days + 1).fill({ status: '-', keterangan: '-' }));
+        reports.forEach(r => {
+            const d = parseInt(r.tanggal.split('-')[2]);
+            Object.keys(r.siswa).forEach(id => { if(map[id]) map[id][d] = r.siswa[id]; });
+        });
+
+        // Render Body
+        tbody.innerHTML = Object.keys(master).sort((a,b) => master[a].nama.localeCompare(master[b].nama)).map(id => {
+            let row = `<td class="p-2 font-medium sticky left-0 bg-white dark:bg-darkcard border-r border-b dark:border-gray-700 z-20 shadow-sm whitespace-nowrap">${master[id].nama}</td>`;
+            let st = { H:0, S:0, I:0, A:0 };
+            
+            for(let i=1; i<=days; i++) {
+                const d = map[id][i], s = d.status;
+                if(s==='Hadir') st.H++; else if(s==='Sakit') st.S++; else if(s==='Izin') st.I++; else if(s==='Alpa') st.A++;
+                
+                // [UPDATE] MENGGUNAKAN HURUF SAJA
+                const badge = {
+                    'Hadir': '<span class="text-green-700 font-bold">H</span>', 
+                    'Sakit': '<span class="text-yellow-600 font-bold">S</span>', 
+                    'Izin':  '<span class="text-blue-600 font-bold">I</span>', 
+                    'Alpa':  '<span class="text-red-600 font-bold">A</span>', 
+                    '-':     '<span class="text-gray-300">-</span>'
+                }[s];
+                
+                const title = d.keterangan !== '-' ? `title="Tgl ${i}: ${d.keterangan}"` : '';
+                row += `<td class="p-1 text-center border dark:border-gray-700 bg-white dark:bg-darkcard h-8 text-xs font-mono" ${title}>${badge}</td>`;
+            }
+            return `<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">${row}<td class="text-center font-bold text-green-700 border bg-green-50/30 text-xs">${st.H}</td><td class="text-center font-bold text-yellow-700 border bg-yellow-50/30 text-xs">${st.S}</td><td class="text-center font-bold text-blue-700 border bg-blue-50/30 text-xs">${st.I}</td><td class="text-center font-bold text-red-700 border bg-red-50/30 text-xs">${st.A}</td></tr>`;
+        }).join('');
+
+        // Tampilkan Tombol
+        if(btnPrint) btnPrint.style.display = 'flex';
+        const btnExcel = document.getElementById('btnExcelMonthly');
+        if(btnExcel) btnExcel.style.display = 'flex';
+
+    } catch (e) { tbody.innerHTML = `<tr><td class="p-4 text-center text-red-500">❌ Error: ${e.message}</td></tr>`; }
+};
+
+window.printMonthlyData = () => {
+    if (!state.monthlyCache.master) return showToast("Data belum siap!", "error");
+    exportMonthlyPDF(state.monthlyCache.master, state.monthlyCache.reports, state.monthlyCache.monthStr, document.getElementById('kelasPicker').value);
 };
