@@ -1,122 +1,140 @@
 <!DOCTYPE html>
 <html lang="id" class="scroll-smooth">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https:;">
+
     <title>Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        darkbg: '#0f172a',
-                        darkcard: '#1e293b',
-                        primary: '#3b82f6',
-                    }
-                }
-            }
+            theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
+        }
+        
+        // 2. LOGIC TEMA AWAL (Mencegah flicker)
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
     </script>
 </head>
-<body class="bg-gray-50 text-gray-800 dark:bg-darkbg dark:text-gray-200 transition-colors duration-300 min-h-screen">
+
+<body class="bg-gray-50 text-gray-800 dark:bg-darkbg dark:text-gray-200 min-h-screen transition-colors duration-300">
 
     <nav class="bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-2">
-                    <span class="text-2xl">🔥</span>
-                    <h1 class="font-bold text-xl tracking-tight">Admin Panel</h1>
-                </div>
-                <div class="flex gap-4">
-                    <a href="index.html" class="text-sm font-medium hover:text-primary transition">Ke Absensi →</a>
-                    <button id="btnTheme" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">🌗</button>
-                </div>
-            </div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+            <h1 class="font-bold text-xl tracking-tight flex items-center gap-2">🔥 Admin Panel</h1>
+            <button id="btnTheme" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">🌗</button>
         </div>
     </nav>
 
     <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         <section class="lg:col-span-1 space-y-6">
             <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
-                    <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded dark:bg-blue-900 dark:text-blue-200">MASTER</span>
-                    Tambah Kelas
-                </h2>
+                <h2 class="text-lg font-bold mb-4">Master Kelas</h2>
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Kode Kelas</label>
-                        <input type="text" id="inputKelasID" placeholder="Contoh: XII-RPL-1" 
-                            class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none transition uppercase">
-                    </div>
-                    <button id="btnSaveKelas" 
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition active:scale-95">
-                        + Simpan Kelas
+                    <input type="text" id="inputKelasID" placeholder="NAMA KELAS (CONTOH: X-RPL)"
+                        class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 uppercase">
+                    <button id="btnSaveKelas"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95"> 
+                        + Simpan Kelas 
                     </button>
                 </div>
             </div>
 
             <div class="bg-blue-50 dark:bg-slate-800 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-900">
-                <p>💡 <strong>Tips:</strong> Pastikan kode kelas unik. Gunakan huruf kapital tanpa spasi (bisa pakai strip "-").</p>
+                <p>💡 <strong>Info:</strong> Pilih kelas di tabel sebelah kanan untuk melihat data siswa.</p>
             </div>
         </section>
 
-        <section class="lg:col-span-2">
-            <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h2 class="text-lg font-bold">Input Data Siswa (Batch)</h2>
-                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full dark:bg-green-900 dark:text-green-200">Mode Cepat</span>
+        <section class="lg:col-span-2 space-y-8">
+
+            <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold">Input Siswa Baru</h2>
+                    <span id="countDraft" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs font-bold">Antrian: 0</span>
                 </div>
-                
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-5">
-                            <input type="text" id="inputNamaSiswa" placeholder="Nama Lengkap Siswa" 
-                                class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none">
-                        </div>
-                        <div class="md:col-span-3">
-                            <input type="text" id="inputNISSiswa" placeholder="NIS" 
-                                class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none">
-                        </div>
-                        <div class="md:col-span-4">
-                            <select id="selectKelasSiswa" 
-                                class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none">
-                                <option value="">Loading Kelas...</option>
-                            </select>
-                        </div>
-                        <button id="btnAddToDraft" 
-                            class="md:col-span-12 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95 flex justify-center items-center gap-2">
-                            <span>⬇️</span> Masukkan ke Antrian
+
+                <div class="grid grid-cols-12 gap-3 mb-4">
+                    <input type="text" id="inputNamaSiswa" placeholder="Nama Lengkap"
+                        class="col-span-12 md:col-span-5 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                    <input type="text" id="inputNISSiswa" placeholder="NIS"
+                        class="col-span-12 md:col-span-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                    <select id="selectKelasSiswa"
+                        class="col-span-12 md:col-span-4 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                        <option value="">Loading Kelas...</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="btnAddToDraft"
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95">
+                        ⬇️ Masuk Antrian
+                    </button>
+                    <button id="btnUploadBatch" style="display:none;"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg shadow animate-pulse transition transform active:scale-95">
+                        🚀 UPLOAD DATABASE
+                    </button>
+                </div>
+
+                <div class="mt-4 overflow-x-auto max-h-40 overflow-y-auto border rounded-lg dark:border-gray-700">
+                    <table class="w-full text-sm text-left">
+                        <tbody id="tbodyDraft" class="divide-y dark:divide-gray-700 bg-gray-50 dark:bg-gray-900">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="p-6 border-b dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-lg font-bold">Data Siswa</h2>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <select id="filterKelasSiswa"
+                            class="flex-1 sm:w-48 p-2 rounded-lg border bg-blue-50 dark:bg-gray-800 dark:border-gray-600 text-sm font-semibold text-blue-900 dark:text-blue-100 focus:ring-2 focus:ring-blue-500">
+                            <option value="" disabled selected>-- Pilih Kelas --</option>
+                        </select>
+                        <button id="btnRefreshStudents" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 px-3 rounded text-lg transition">🔄</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-100 dark:bg-gray-700 text-xs uppercase font-bold text-gray-600 dark:text-gray-300">
+                            <tr>
+                                <th class="p-4 w-8"><input type="checkbox" id="checkAll" class="rounded cursor-pointer"></th>
+                                <th class="p-4">Nama</th>
+                                <th class="p-4">NIS</th>
+                                <th class="p-4">Kelas</th>
+                                <th class="p-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodySiswa" class="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                            <tr>
+                                <td colspan="5" class="p-12 text-center text-gray-400">
+                                    <span class="text-2xl block mb-2">👆</span>
+                                    Pilih kelas di pojok kanan atas untuk melihat data.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-4 bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center border-t dark:border-gray-700">
+                    <div class="text-sm font-medium text-gray-500">Terpilih: <span id="countSelected" class="text-indigo-600 font-bold">0</span></div>
+                    <div class="flex gap-2">
+                        <button id="btnPromoteClass" disabled
+                            class="px-4 py-2 bg-yellow-500 text-white text-xs font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-95">
+                            📈 PROMOTE
                         </button>
-                    </div>
-
-                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold uppercase tracking-wider">
-                                    <tr>
-                                        <th class="p-4">Nama</th>
-                                        <th class="p-4">NIS</th>
-                                        <th class="p-4">Kelas</th>
-                                        <th class="p-4 text-center">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbodyDraft" class="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                                    <tr><td colspan="4" class="p-8 text-center text-gray-400">Belum ada data di antrian...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            Total Antrian: <span id="countDraft" class="font-bold text-indigo-500">0</span> Siswa
-                        </div>
-                        <button id="btnUploadBatch" style="display:none;"
-                            class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition transform hover:-translate-y-1 flex items-center justify-center gap-2">
-                            <span>🚀</span> UPLOAD KE DATABASE
+                        <button id="btnDeleteSelected" disabled
+                            class="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-95">
+                            🗑️ HAPUS
                         </button>
                     </div>
                 </div>
@@ -124,12 +142,52 @@
         </section>
     </main>
 
-    <script type="module">
-        import { toggleTheme } from './assets/js/utils/ui.js';
-        import './assets/js/pages/admin.js';
+    <div id="modalPromote" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity opacity-0">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform scale-95 transition-all">
+            <div class="bg-yellow-500 p-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg flex items-center gap-2">📈 Pindahkan Siswa</h3>
+                <button id="btnClosePromote" class="text-white/80 hover:text-white font-bold">✕</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-gray-600 dark:text-gray-300 text-sm">
+                    Anda akan memindahkan <strong id="promoteCount" class="text-yellow-600 dark:text-yellow-400 text-lg">0</strong> siswa. Silakan pilih kelas tujuan:
+                </p>
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Ke Kelas:</label>
+                    <select id="selectTargetPromote" class="w-full p-3 rounded-lg border bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-yellow-500 outline-none transition font-medium">
+                        <option value="" disabled selected>-- Pilih Kelas Tujuan --</option>
+                    </select>
+                </div>
+                <div class="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded border border-yellow-100 dark:border-yellow-900/50 text-xs text-yellow-800 dark:text-yellow-200">
+                    ⚠️ Pastikan tujuan benar. Data akan langsung diperbarui di database.
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-900/50 flex justify-end gap-3 border-t dark:border-gray-700">
+                <button id="btnCancelPromote" class="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 font-medium text-sm transition">Batal</button>
+                <button id="btnConfirmPromote" class="px-6 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-sm shadow-lg shadow-yellow-500/30 transition transform active:scale-95">✅ Pindahkan Sekarang</button>
+            </div>
+        </div>
+    </div>
 
-        // Init Theme
-        document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+    <script type="module">
+        // 1. Import fungsi tema
+        import { toggleTheme } from './assets/js/utils/ui.js';
+        
+        // 2. Import Logic Halaman
+        import './assets/js/pages/admin.js';
+        
+        // 3. PASANG LISTENER TEMA SECARA EKSPLISIT
+        // Ini memastikan tombol jalan meski logic admin.js belum selesai loading
+        const btnTheme = document.getElementById('btnTheme');
+        if(btnTheme) {
+            btnTheme.addEventListener('click', () => {
+                toggleTheme();
+                console.log("🌓 Theme Toggled");
+            });
+        }
+
+        console.log("🚀 Admin Module & Theme Listener Injected");
     </script>
+
 </body>
 </html>
