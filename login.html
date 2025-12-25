@@ -1,13 +1,84 @@
 <!DOCTYPE html>
-<html>
-<head><title>Login</title></head>
-<body style="background:#0d1117; color:white; display:flex; justify-content:center; align-items:center; height:100vh; font-family:monospace;">
-    <div style="text-align:center; border:1px solid #30363d; padding:40px;">
-        <h1>SISTEM ABSENSI</h1>
-        <p>Login Mockup</p>
-        <button onclick="window.location.href='index.html'" style="padding:10px 20px; background:#238636; color:white; border:none; cursor:pointer;">
-            MASUK SEBAGAI ADMIN / GURU
-        </button>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistem Absensi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
+        }
+        // Tema gelap otomatis sesuai preferensi sistem/localstorage
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</head>
+
+<body
+    class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+
+    <div
+        class="max-w-md w-full bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">📝 ABSENSI</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Silakan login untuk mengelola data</p>
+            </div>
+
+            <div class="space-y-4">
+                <button id="btnGoogleLogin"
+                    class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl border border-gray-300 shadow-sm transition transform active:scale-95">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" class="w-5 h-5"
+                        alt="Google Logo">
+                    <span>Masuk dengan Google</span>
+                </button>
+
+                <div class="relative flex py-3 items-center">
+                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                    <span class="flex-shrink mx-4 text-gray-400 text-xs uppercase">Atau</span>
+                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+
+                <div class="space-y-3">
+                    <input type="text" id="username" placeholder="Username"
+                        class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <input type="password" id="password" placeholder="Password"
+                        class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <button id="btnLogin"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition active:scale-95 text-sm">
+                        LOGIN MANUAL
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t dark:border-gray-700 text-center">
+                <p class="text-xs text-gray-400">Pusat Bantuan: IT Support Absensi</p>
+            </div>
+        </div>
     </div>
+
+    <script type="module">
+        import { authService } from './assets/js/firebase/auth-service.js';
+        import { showToast } from './assets/js/utils/ui.js';
+
+        document.getElementById('btnGoogleLogin').addEventListener('click', async () => {
+            try {
+                const user = await authService.loginWithGoogle();
+                showToast(`Selamat datang, ${user.displayName}!`, "success");
+
+                // Simpan data user minimalis ke localStorage jika perlu
+                localStorage.setItem('user_token', user.accessToken);
+
+                setTimeout(() => window.location.href = 'index.html', 1500);
+            } catch (error) {
+                showToast(error.message, "error");
+            }
+        });
+    </script>
 </body>
+
 </html>
