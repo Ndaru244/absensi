@@ -43,13 +43,24 @@ export const adminService = {
     },
 
     // 5. Upload Draft (Batch Insert)
-    async uploadDraftBatch(students) {
+    async uploadDraftBatch(draftData) {
+        if (!draftData || draftData.length === 0) return;
+        
         const batch = writeBatch(db);
-        students.forEach(s => {
-            const ref = doc(collection(db, "siswa")); // Auto ID
-            batch.set(ref, s);
+        const studentsRef = collection(db, "siswa");
+
+        draftData.forEach((student) => {
+            // Membuat referensi dokumen baru dengan ID otomatis
+            const newDocRef = doc(studentsRef); 
+            batch.set(newDocRef, {
+                id_kelas: student.id_kelas,
+                nama_siswa: student.nama_siswa,
+                nis: student.nis,
+                status_status: 'Aktif'
+            });
         });
-        await batch.commit();
+        // Eksekusi semua perintah dalam satu kali jalan
+        return await batch.commit();
     },
 
     // 6. Hapus Siswa (Single)
