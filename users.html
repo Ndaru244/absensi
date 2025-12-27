@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen User - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
+        }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</head>
+
+<body class="bg-gray-50 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen">
+
+    <nav class="bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                        <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+                        <h1 class="font-bold text-xl tracking-tight text-gray-900 dark:text-white">Admin Panel</h1>
+                    </div>
+                    <a href="index.html"
+                        class="hidden md:flex text-xs font-medium text-gray-400 hover:text-indigo-500 items-center gap-1 transition">
+                        <i data-lucide="arrow-left" class="w-3 h-3"></i> Ke Absensi
+                    </a>
+                </div>
+
+                <div class="hidden md:flex items-center gap-4">
+                    <a href="admin.html"
+                        class="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 flex items-center gap-1 transition">
+                        <i data-lucide="database" class="w-4 h-4"></i> Data Master
+                    </a>
+                    <a href="users.html"
+                        class="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 flex items-center gap-1 transition">
+                        <i data-lucide="users" class="w-4 h-4"></i> Users
+                    </a>
+                    <div class="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+                    <button onclick="toggleTheme()"
+                        class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-500">
+                        <i data-lucide="sun-moon" class="w-5 h-5"></i>
+                    </button>
+                    <button id="btnLogoutDesktop" class="text-red-500 hover:text-red-700 p-2 transition font-bold">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-500 p-2 rounded-md">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden bg-white dark:bg-darkcard border-t dark:border-gray-700">
+            <div class="px-4 pt-2 pb-4 space-y-1 shadow-lg">
+                <a href="index.html"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">
+                    <i data-lucide="arrow-left" class="inline w-4 h-4 mr-2"></i> Ke Absensi
+                </a>
+                <a href="admin.html"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+                    <i data-lucide="database" class="inline w-4 h-4 mr-2"></i> Data Master
+                </a>
+                <a href="users.html"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+                    <i data-lucide="users" class="inline w-4 h-4 mr-2"></i> Manajemen User
+                </a>
+                <button onclick="toggleTheme()"
+                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
+                    <i data-lucide="sun-moon" class="inline w-4 h-4 mr-2"></i> Ganti Tema
+                </button>
+                <button id="btnLogoutMobile"
+                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <i data-lucide="log-out" class="inline w-4 h-4 mr-2"></i> Keluar
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-6 flex items-end justify-between">
+            <div>
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <i data-lucide="users" class="w-6 h-6 text-blue-500"></i> Kontrol Akses Pengguna
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">Verifikasi guru baru atau atur hak akses admin sistem.</p>
+            </div>
+        </div>
+
+        <div
+            class="bg-white dark:bg-darkcard shadow-lg rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-800 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                    <tr>
+                        <th class="px-6 py-4 text-left">User Profile</th>
+                        <th class="px-6 py-4 text-left">Role</th>
+                        <th class="px-6 py-4 text-left">Status</th>
+                        <th class="px-6 py-4 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr>
+                        <td colspan="4" class="p-6 text-center italic text-gray-400">Memuat data pengguna...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script type="module">
+        import { db } from './assets/js/firebase/config.js';
+        import { collection, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+        import { initAuthGuard } from './assets/js/utils/auth-guard.js';
+        import { authService } from './assets/js/firebase/auth-service.js';
+        import { showToast, showConfirm, toggleTheme } from './assets/js/utils/ui.js'; 
+        
+        window.toggleTheme = toggleTheme;
+        // 1. Init System
+        lucide.createIcons();
+        initAuthGuard({ requireAdmin: true });
+
+        // 2. Event Listeners
+        document.getElementById('btnLogout')?.addEventListener('click', () => authService.logout());
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
+
+        // 3. Realtime User Render
+        const usersRef = collection(db, "users");
+        onSnapshot(usersRef, (snapshot) => {
+            const tableBody = document.getElementById('userTableBody');
+            
+            if (snapshot.empty) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-500 italic">Belum ada user terdaftar.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            snapshot.docs.forEach(docSnap => {
+                const user = docSnap.data();
+                const isVerified = user.isVerified;
+                const isAdmin = user.role === 'admin';
+                const avatar = user.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nama || 'User')}&background=random`;
+
+                html += `
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition group border-b dark:border-gray-700">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            <img class="h-10 w-10 rounded-full object-cover border dark:border-gray-600 shadow-sm" src="${avatar}" alt="">
+                            <div class="ml-4">
+                                <div class="text-sm font-bold text-gray-900 dark:text-white">${user.nama || 'Tanpa Nama'}</div>
+                                <div class="text-xs text-gray-500 font-mono">${user.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isAdmin ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-gray-100 text-gray-700 border-gray-200'}">
+                            ${isAdmin ? '<i data-lucide="crown" class="w-3 h-3"></i> ADMIN' : '<i data-lucide="glasses" class="w-3 h-3"></i> VIEWER'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${isVerified ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}">
+                            ${isVerified ? '<i data-lucide="check-circle" class="w-3 h-3"></i> VERIFIED' : '<i data-lucide="clock" class="w-3 h-3"></i> PENDING'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        ${!isVerified ? `
+                            <button onclick="window.updateStatus('${docSnap.id}', true)" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg transition shadow flex-inline items-center gap-1">
+                                <i data-lucide="check" class="w-3 h-3"></i> Verify
+                            </button>` : ''
+                        }
+                        
+                        <button onclick="toggleRole('${docSnap.id}', '${user.role}')" class="text-xs border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-1.5 rounded-lg transition text-gray-600 dark:text-gray-300">
+                            ${isAdmin ? 'Turunkan Role' : 'Jadikan Admin'}
+                        </button>
+                        
+                        <button onclick="deleteUser('${docSnap.id}')" class="text-xs bg-red-100 hover:bg-red-200 text-red-600 px-2 py-1.5 rounded-lg transition">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            tableBody.innerHTML = html;
+            lucide.createIcons(); // PENTING: Render ulang icon untuk baris tabel baru
+        });
+
+        // 4. Global Window Actions (Agar bisa dipanggil via onclick HTML)
+        
+        window.updateStatus = async (id, status) => {
+            try {
+                await updateDoc(doc(db, "users", id), { isVerified: status });
+                showToast("Status user diperbarui", "success");
+            } catch (e) { showToast(e.message, "error"); }
+        };
+
+        window.toggleRole = async (id, currentRole) => {
+            const newRole = currentRole === 'admin' ? 'viewer' : 'admin';
+            showConfirm(`Ubah role menjadi ${newRole.toUpperCase()}?`, async () => {
+                try {
+                    await updateDoc(doc(db, "users", id), { role: newRole });
+                    showToast(`Role diubah ke ${newRole}`, "success");
+                } catch (e) { showToast(e.message, "error"); }
+            });
+        };
+
+        window.deleteUser = async (id) => {
+            showConfirm('Hapus user ini secara permanen?', async () => {
+                try {
+                    await deleteDoc(doc(db, "users", id));
+                    showToast("User dihapus", "success");
+                } catch (e) { showToast(e.message, "error"); }
+            });
+        };
+    </script>
+</body>
+
+</html>
