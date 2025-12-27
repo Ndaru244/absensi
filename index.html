@@ -4,161 +4,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https:;">
-
     <title>Absensi Harian</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: { extend: { colors: { darkbg: '#0f172a', darkcard: '#1e293b' } } }
         }
-        // 2. LOGIC TEMA (Agar tidak flicker/reset saat refresh)
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
         }
     </script>
 </head>
 
 <body class="bg-gray-50 text-gray-800 dark:bg-darkbg dark:text-gray-200 min-h-screen transition-colors duration-300">
 
-    <header class="bg-white dark:bg-darkcard shadow-sm p-4 sticky top-0 z-30 flex justify-between items-center">
-        <div>
-            <h1 class="text-xl font-bold text-gray-800 dark:text-white">📝 Absensi Siswa</h1>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Sistem Pencatatan Kehadiran Realtime</p>
+    <nav class="bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+
+                <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+                    <h1 class="font-bold text-xl tracking-tight text-gray-900 dark:text-white">Absensi</h1>
+                </div>
+
+                <div class="hidden md:flex items-center gap-2">
+                    <a href="admin.html"
+                        class="admin-only hidden bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-2 rounded-lg text-xs font-bold border border-purple-200 transition items-center gap-2">
+                        <i data-lucide="shield" class="w-4 h-4"></i> Admin Panel
+                    </a>
+
+                    <button onclick="openMonthlyModal()"
+                        class="bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 dark:border-indigo-700 flex items-center gap-2 transition">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Rekap
+                    </button>
+
+                    <div class="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+                    <button id="btnThemeDesktop" onclick="toggleTheme()"
+                        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-gray-500">
+                        <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+                        <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+                    </button>
+
+                    <button id="btnLogoutDesktop" class="text-red-500 hover:text-red-700 p-2 transition" title="Keluar">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center md:hidden">
+                    <button id="mobile-menu-btn"
+                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white p-2 rounded-md focus:outline-none">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <div class="flex gap-2">
-            <button onclick="openMonthlyModal()"
-                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow transition">
-                📊 Rekap Bulanan
-            </button>
-            <button id="btnTheme"
-                class="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                🌗 </button>
-        </div>
-    </header>
+        <div id="mobile-menu" class="hidden md:hidden bg-white dark:bg-darkcard border-t dark:border-gray-700">
+            <div class="px-4 pt-2 pb-4 space-y-2 shadow-lg">
+                <a href="admin.html"
+                    class="admin-only hidden block w-full text-left px-3 py-2 rounded-md text-base font-medium text-purple-700 bg-purple-50 dark:bg-purple-900/20">
+                    <div class="flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4"></i> Admin Panel</div>
+                </a>
 
+                <button onclick="openMonthlyModal()"
+                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div class="flex items-center gap-2"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Rekap Bulanan
+                    </div>
+                </button>
+
+                <button onclick="toggleTheme()"
+                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="sun-moon" class="w-4 h-4"></i> Ganti Tema
+                    </div>
+                </button>
+
+                <button id="btnLogoutMobile"
+                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <div class="flex items-center gap-2"><i data-lucide="log-out" class="w-4 h-4"></i> Keluar</div>
+                </button>
+            </div>
+        </div>
+    </nav>
 
     <div id="lockedMessage"
-        class="hidden bg-purple-600 text-white text-center py-2 font-bold text-sm tracking-wide shadow-md"> 🔒 DATA
-        TERKUNCI (READ ONLY) </div>
+        class="hidden bg-purple-600 text-white text-center py-2 font-bold text-sm tracking-wide shadow-md flex justify-center items-center gap-2">
+        <i data-lucide="lock" class="w-4 h-4"></i> DATA TERKUNCI (READ ONLY)
+    </div>
     <div id="unsavedMsg"
-        class="hidden bg-yellow-500 text-white text-center py-2 font-bold text-sm tracking-wide shadow-md animate-pulse">
-        ⚠️ Ada perubahan belum disimpan! </div>
+        class="hidden bg-yellow-500 text-white text-center py-2 font-bold text-sm tracking-wide shadow-md flex justify-center items-center gap-2 animate-pulse">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Ada perubahan belum disimpan!
+    </div>
 
     <main class="flex-1 max-w-5xl mx-auto w-full p-4 space-y-6">
+
         <div
-            class="bg-white dark:bg-darkcard p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-4 items-end">
-            <div class="w-full md:w-1/3">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tanggal</label>
+            class="bg-white dark:bg-darkcard p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
+            <div class="md:col-span-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                    <i data-lucide="calendar" class="w-3 h-3"></i> Tanggal
+                </label>
                 <input type="date" id="datePicker"
-                    class="w-full p-2 rounded border bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                    class="w-full p-2.5 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
-            <div class="w-full md:w-1/3">
-                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Kelas</label>
+            <div class="md:col-span-3">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                    <i data-lucide="users" class="w-3 h-3"></i> Kelas
+                </label>
                 <select id="kelasPicker"
-                    class="w-full p-2 rounded border bg-gray-50 dark:bg-gray-800 dark:border-gray-600">
+                    class="w-full p-2.5 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="">-- Pilih Kelas --</option>
                 </select>
             </div>
-            <button onclick="loadRekapData()"
-                class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded shadow transition">
-                BUKA DATA </button>
+            <div class="md:col-span-1">
+                <button onclick="loadRekapData()"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow transition flex justify-center items-center">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                </button>
+            </div>
         </div>
 
         <div id="appArea" class="space-y-4">
-            <h3 id="loadingText" class="text-center text-gray-500 italic mt-10">Silakan pilih tanggal & kelas...</h3>
+            <div id="loadingText" class="text-center text-gray-400 mt-20 flex flex-col items-center gap-3">
+                <i data-lucide="mouse-pointer-2" class="w-12 h-12 opacity-20"></i>
+                <span class="italic">Silakan pilih tanggal & kelas untuk memulai.</span>
+            </div>
 
             <div
                 class="bg-white dark:bg-darkcard rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                 <table id="tabelAbsensi" class="w-full text-left hidden">
                     <thead
-                        class="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 uppercase text-xs font-bold">
+                        class="bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 uppercase text-xs font-bold">
                         <tr>
-                            <th class="p-4">Siswa</th>
-                            <th class="p-4">Kehadiran</th>
+                            <th class="p-4 w-1/2">Nama Siswa</th>
+                            <th class="p-4 w-1/2">Status Kehadiran</th>
                         </tr>
                     </thead>
-                    <tbody id="tbodySiswa" class="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                    </tbody>
+                    <tbody id="tbodySiswa" class="divide-y divide-gray-200 dark:divide-gray-700 text-sm"></tbody>
                 </table>
             </div>
 
             <div id="actionButtons"
                 class="hidden fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-darkcard border-t dark:border-gray-700 md:static md:bg-transparent md:border-none md:p-0 flex flex-col md:flex-row gap-3 justify-end z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none">
                 <button id="btnExport" onclick="exportToPDF()"
-                    class="flex-1 md:flex-none bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow"> 📄 PDF
+                    class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow flex justify-center items-center gap-2">
+                    <i data-lucide="file-text" class="w-5 h-5"></i> PDF
                 </button>
                 <button id="btnLock"
-                    class="flex-1 md:flex-none bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow"> 🔒 Kunci
+                    class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow flex justify-center items-center gap-2">
+                    <i data-lucide="lock" class="w-5 h-5"></i> Kunci
                 </button>
                 <button id="btnSave" onclick="saveDataToFirestore()"
-                    class="flex-[2] md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">
-                    💾 SIMPAN </button>
+                    class="flex-[2] md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex justify-center items-center gap-2">
+                    <i data-lucide="save" class="w-5 h-5"></i> SIMPAN
+                </button>
             </div>
         </div>
     </main>
 
-    <div id="modalMonthly" 
-    class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-300">
-    <div class="bg-white dark:bg-darkcard w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-all">
-
-        <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-            <div class="flex items-center gap-3">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-white">📊 Laporan Bulanan</h3>
-                <button id="btnPrintMonthly" onclick="printMonthlyData()" style="display: none;" 
-                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-lg flex items-center gap-2 transition active:scale-95">
-                    <span>🖨️</span> Download PDF
+    <div id="modalMonthly"
+        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 transition-opacity duration-300">
+        <div
+            class="bg-white dark:bg-darkcard w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div
+                class="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-5 h-5"></i> Laporan Bulanan
+                    </h3>
+                    <button id="btnPrintMonthly" onclick="printMonthlyData()" style="display: none;"
+                        class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-2 transition active:scale-95">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Download PDF
+                    </button>
+                </div>
+                <button onclick="closeMonthlyModal()" class="text-gray-500 hover:text-red-500 p-2 transition">
+                    <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
-            <button onclick="closeMonthlyModal()" class="text-gray-500 hover:text-red-500 text-2xl font-bold p-2 transition">✕</button>
-        </div>
-
-        <div class="p-4 flex flex-wrap gap-4 border-b dark:border-gray-700 bg-white dark:bg-darkcard">
-            <div class="flex flex-col">
-                <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Pilih Periode</label>
-                <input type="month" id="monthPickerReport" 
-                    class="p-2 rounded-lg border bg-gray-50 dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+            <div class="p-4 flex flex-wrap gap-4 border-b dark:border-gray-700 bg-white dark:bg-darkcard items-end">
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-gray-400 uppercase mb-1 ml-1">Pilih Periode</label>
+                    <input type="month" id="monthPickerReport"
+                        class="p-2 rounded-lg border bg-gray-50 dark:bg-gray-700 dark:border-gray-600 outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+                </div>
+                <button onclick="loadMonthlyReport()"
+                    class="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-md transition active:scale-95 text-sm flex items-center gap-2">
+                    <i data-lucide="filter" class="w-4 h-4"></i> Lihat Data
+                </button>
             </div>
-            <button onclick="loadMonthlyReport()" 
-                class="self-end bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition active:scale-95 text-sm">
-                Lihat Data
-            </button>
-        </div>
-
-        <div class="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900/20">
-            <table class="w-full border-collapse text-[11px]">
-                <thead class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
-                    <tr id="headerRowBulanan">
-                        <th class="p-4 text-left font-medium italic">Silakan pilih bulan dan klik "Lihat Data" untuk menyusun laporan...</th>
-                    </tr>
-                </thead>
-                <tbody id="tbodyBulanan" class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-darkcard">
-                    </tbody>
-            </table>
-        </div>
-        
-        <div class="p-3 bg-gray-50 dark:bg-gray-800/50 border-t dark:border-gray-700 text-[10px] text-gray-500 flex justify-between">
-            <span class="font-mono font-bold">* H=Hadir, S=Sakit, I=Izin, A=Alpa, -=Kosong</span>
-            <span>Arahkan kursor ke sel untuk melihat detail keterangan</span>
+            <div class="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900/20">
+                <table class="w-full border-collapse text-[11px]">
+                    <thead
+                        class="sticky top-0 z-30 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 shadow-sm">
+                        <tr id="headerRowBulanan">
+                            <th class="p-4 text-left font-medium italic">Silakan pilih bulan dan klik "Lihat Data" untuk
+                                menyusun laporan...</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyBulanan"
+                        class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-darkcard"></tbody>
+                </table>
+            </div>
+            <div
+                class="p-3 bg-gray-50 dark:bg-gray-800/50 border-t dark:border-gray-700 text-[10px] text-gray-500 flex justify-between items-center">
+                <span
+                    class="font-mono font-bold bg-white dark:bg-gray-700 px-2 py-1 rounded border dark:border-gray-600">Legend:
+                    H=Hadir, S=Sakit, I=Izin, A=Alpa</span>
+                <span class="flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Arahkan kursor ke sel
+                    untuk melihat detail</span>
+            </div>
         </div>
     </div>
-</div>
 
     <div class="h-24 md:h-0"></div>
-
     <script type="module" src="assets/js/pages/index.js"></script>
     <script type="module">
         import { toggleTheme } from './assets/js/utils/ui.js';
-        import './assets/js/pages/index.js';
-        document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+        import { initAuthGuard } from './assets/js/utils/auth-guard.js';
+
+        window.toggleTheme = toggleTheme;
+        // 1. Init Icons & Auth
+        lucide.createIcons();
+        initAuthGuard({ requireAdmin: false });
+
+        // 2. Event Listeners (Dengan pengecekan null '?' agar tidak error)
+        document.getElementById('btnTheme')?.addEventListener('click', toggleTheme);
+        document.getElementById('btnThemeDesktop')?.addEventListener('click', toggleTheme);
+        
+        document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        });
     </script>
 </body>
 

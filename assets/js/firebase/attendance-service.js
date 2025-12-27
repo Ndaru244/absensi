@@ -1,6 +1,6 @@
 import { db } from './config.js';
-import { 
-    collection, getDocs, doc, getDoc, setDoc, query, where, updateDoc, Timestamp 
+import {
+    collection, getDocs, doc, getDoc, setDoc, query, where, updateDoc, Timestamp
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 export const attendanceService = {
@@ -20,14 +20,14 @@ export const attendanceService = {
     async getMasterSiswa(kelasId) {
         try {
             const q = query(
-                collection(db, "siswa"), 
-                where("id_kelas", "==", kelasId), 
+                collection(db, "siswa"),
+                where("id_kelas", "==", kelasId),
                 where("status_aktif", "==", "Aktif")
             );
-            
+
             const snap = await getDocs(q);
             let mapSiswa = {};
-            
+
             snap.forEach(s => {
                 mapSiswa[s.id] = {
                     nama: s.data().nama_siswa,
@@ -53,7 +53,7 @@ export const attendanceService = {
             }
             // Update timestamp terakhir diubah
             data.updated_at = Timestamp.now();
-            
+
             await setDoc(ref, data, { merge: true });
         } catch (error) {
             console.error("Error saving rekap:", error);
@@ -65,9 +65,9 @@ export const attendanceService = {
     async lockRekap(docId) {
         try {
             const ref = doc(db, "rekap_absensi", docId);
-            await updateDoc(ref, { 
-                is_locked: true, 
-                locked_at: Timestamp.now() 
+            await updateDoc(ref, {
+                is_locked: true,
+                locked_at: Timestamp.now()
             });
         } catch (error) {
             console.error("Error locking rekap:", error);

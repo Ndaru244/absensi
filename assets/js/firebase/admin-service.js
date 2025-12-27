@@ -1,7 +1,7 @@
 import { db } from './config.js';
 // PERHATIKAN: Saya menambahkan 'query', 'where', 'limit' di import ini
-import { 
-    collection, getDocs, doc, writeBatch, deleteDoc, updateDoc, setDoc, query, where, limit 
+import {
+    collection, getDocs, doc, writeBatch, deleteDoc, updateDoc, setDoc, query, where, limit
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 export const adminService = {
@@ -30,8 +30,8 @@ export const adminService = {
             // Cari di seluruh tabel siswa, apakah ada NIS yang sama?
             // limit(1) agar hemat, begitu ketemu 1 langsung berhenti.
             const q = query(
-                collection(db, "siswa"), 
-                where("nis", "==", nis), 
+                collection(db, "siswa"),
+                where("nis", "==", nis),
                 limit(1)
             );
             const snap = await getDocs(q);
