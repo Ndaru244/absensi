@@ -1,190 +1,259 @@
-// ===== IMPORT MODULES =====
-import { userService } from '../firebase/user-service.js';
-import { initAuthGuard } from '../utils/auth-guard.js';
-import { authService } from '../firebase/auth-service.js';
-import { showToast, showConfirm, toggleTheme } from '../utils/ui.js';
+import { db, auth } from "../firebase/config.js";
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+// FIX 1: Tambahkan showCustomModal ke import
+import { showToast, showCustomModal, showConfirm } from "../utils/ui.js";
 
-window.toggleTheme = toggleTheme;
+// State Global
+let allUsers = [];
 
-// ===== STATE MANAGEMENT =====
-const state = {
-    users: [],
-    renderedIds: new Set(), // Track mana yang sudah di-render
-};
+// 1. Fungsi Load Data
+async function loadUsers() {
+  const tableBody = document.getElementById("userTableBody");
+  if (!tableBody) return;
 
-// ===== INIT SYSTEM =====
-lucide.createIcons();
-initAuthGuard({ requireAdmin: true });
+  tableBody.innerHTML =
+    '<tr><td colspan="4" class="text-center py-4">Loading...</td></tr>';
 
-// ===== EVENT LISTENERS =====
-document.getElementById('btnLogout')?.addEventListener('click', () => authService.logout());
-document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
-    document.getElementById('mobile-menu').classList.toggle('hidden');
-});
+  try {
+    const querySnapshot = await getDocs(collection(db, "users"));
+    allUsers = [];
+    querySnapshot.forEach((doc) => {
+      allUsers.push({ id: doc.id, ...doc.data() });
+    });
 
-document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
-    document.getElementById('mobile-menu').classList.toggle('hidden');
-});
+    // Memanggil fungsi render (Pastikan fungsi ini ada!)
+    renderTable(allUsers);
+  } catch (error) {
+    console.error("Error loading users:", error);
+    showToast("Gagal memuat data user", "error");
+  }
+}
 
-// ===== SMART RENDERING =====
-function renderUserRow(user) {
-    const isVerified = user.isVerified;
-    const isAdmin = user.role === 'admin';
-    const avatar = user.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nama || 'User')}&background=random`;
+// 2. Render Tabel (Wajib Ada)
+function renderTable(users) {
+  const tableBody = document.getElementById("userTableBody");
+  const currentUser = auth.currentUser;
+  tableBody.innerHTML = "";
 
-    return `
-    <tr id="user-row-${user.id}" class="flex flex-col md:table-row p-4 md:p-0 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-        
-        <td class="px-2 py-3 md:px-6 md:py-4 block md:table-cell">
-            <div class="flex items-center">
-                <img class="h-12 w-12 md:h-10 md:w-10 rounded-full object-cover border dark:border-gray-600 shadow-sm" src="${avatar}" alt="">
-                <div class="ml-4">
-                    <div class="text-sm font-bold text-gray-900 dark:text-white">${user.nama || 'Tanpa Nama'}</div>
-                    <div class="text-xs text-gray-500 font-mono truncate max-w-[200px] md:max-w-none">${user.email}</div>
+  if (users.length === 0) {
+    tableBody.innerHTML = `
+            <tr class="block md:table-row w-full bg-white dark:bg-gray-800 rounded-xl p-6 text-center shadow md:shadow-none">
+                <td colspan="4" class="block md:table-cell py-4 text-gray-500">Tidak ada data user.</td>
+            </tr>`;
+    return;
+  }
+
+  users.forEach((user) => {
+    const isSelf = currentUser && user.id === currentUser.uid;
+
+    // Styling Badge
+    const roleColor =
+      user.role === "admin"
+        ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+        : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+
+    const statusBadge = user.isVerified
+      ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Verified</span>'
+      : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Pending</span>';
+
+    const row = document.createElement("tr");
+    row.className = `
+            flex flex-col md:table-row 
+            bg-white dark:bg-gray-800 
+            rounded-xl shadow-sm md:shadow-none md:rounded-none
+            border border-gray-200 dark:border-gray-700 md:border-b md:border-x-0 md:border-t-0
+            mb-4 md:mb-0
+            transition-all hover:bg-gray-50 dark:hover:bg-gray-750
+        `;
+
+    row.innerHTML = `
+            <td class="block md:table-cell px-4 py-4 md:px-6 md:py-4 border-b border-gray-100 dark:border-gray-700 md:border-none">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10">
+                        <img class="h-10 w-10 rounded-full object-cover border dark:border-gray-600" 
+                             src="${
+                               user.photo ||
+                               "https://ui-avatars.com/api/?name=" + user.nama
+                             }" alt="${user.nama}">
+                    </div>
+                    <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900 dark:text-white">${
+                          user.nama
+                        }</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">${
+                          user.email
+                        }</div>
+                        <div class="md:hidden text-xs text-indigo-500 mt-1 font-mono">${
+                          user.nip || "NIP: -"
+                        }</div>
+                        <div class="hidden md:block text-xs text-gray-400 dark:text-gray-500">${
+                          user.nip || "NIP: -"
+                        }</div>
+                    </div>
+                </div>
+            </td>
+
+            <td class="block md:table-cell px-4 py-3 md:px-6 md:py-4 flex justify-between items-center">
+                <span class="text-xs font-bold text-gray-500 uppercase md:hidden">Role</span>
+                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColor}">${
+      user.role
+    }</span>
+            </td>
+
+            <td class="block md:table-cell px-4 py-3 md:px-6 md:py-4 flex justify-between items-center">
+                <span class="text-xs font-bold text-gray-500 uppercase md:hidden">Status</span>
+                ${statusBadge}
+            </td>
+
+            <td class="block md:table-cell px-4 py-3 md:px-6 md:py-4 bg-gray-50 dark:bg-gray-700/50 md:bg-transparent rounded-b-xl md:rounded-none flex justify-end items-center gap-3">
+                <span class="text-xs font-bold text-gray-500 uppercase md:hidden mr-auto">Aksi</span>
+                
+                <button class="btn-edit inline-flex items-center px-3 py-1.5 border border-indigo-600 rounded text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-400 dark:hover:bg-indigo-900/30 transition-colors" data-id="${
+                  user.id
+                }">
+                    <i data-lucide="edit-2" class="w-3 h-3 mr-1"></i> Edit
+                </button>
+
+                ${
+                  isSelf
+                    ? `<span class="text-gray-400 text-xs italic cursor-not-allowed px-2">Owner</span>`
+                    : `<button class="btn-delete inline-flex items-center px-3 py-1.5 border border-red-600 rounded text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:border-red-400 dark:hover:bg-red-900/30 transition-colors" data-id="${user.id}">
+                        <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> Hapus
+                     </button>`
+                }
+            </td>
+        `;
+    tableBody.appendChild(row);
+  });
+
+  // PENTING: Attach event listener setiap kali render ulang
+  attachEvents();
+}
+
+// 3. Attach Events (Fixed logic)
+function attachEvents() {
+  document.querySelectorAll(".btn-edit").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const targetBtn = e.target.closest(".btn-edit");
+      const uid = targetBtn.dataset.id;
+      if (uid) openEditModal(uid);
+    });
+  });
+
+  document.querySelectorAll(".btn-delete").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const targetBtn = e.target.closest(".btn-delete");
+      const uid = targetBtn.dataset.id;
+      if (uid) confirmDelete(uid);
+    });
+  });
+}
+
+// 4. Logika Edit Modal (HANYA SATU VERSI - Menggunakan showCustomModal)
+function openEditModal(uid) {
+  const user = allUsers.find((u) => u.id === uid);
+  if (!user) return;
+
+  const formHtml = `
+        <div class="space-y-4 text-left">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Lengkap</label>
+                <input type="text" id="edit-nama" value="${
+                  user.nama
+                }" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIP (Nomor Induk)</label>
+                <input type="text" id="edit-nip" value="${
+                  user.nip === "-" ? "" : user.nip || ""
+                }" placeholder="Kosongkan jika bukan PNS" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5">
+            </div>
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role Akses</label>
+                    <select id="edit-role" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2.5">
+                        <option value="viewer" ${
+                          user.role === "viewer" ? "selected" : ""
+                        }>Viewer (Guru)</option>
+                        <option value="admin" ${
+                          user.role === "admin" ? "selected" : ""
+                        }>Administrator</option>
+                    </select>
+                </div>
+                <div class="flex items-center p-3 border dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                    <input id="edit-verified" type="checkbox" ${
+                      user.isVerified ? "checked" : ""
+                    } class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                    <label for="edit-verified" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+                        Akun Terverifikasi (Bisa Login)
+                    </label>
                 </div>
             </div>
-        </td>
+        </div>
+    `;
 
-        <td class="px-2 py-2 md:px-6 md:py-4 flex md:table-cell items-center justify-between border-t md:border-none border-gray-100 dark:border-gray-800">
-            <span class="md:hidden text-[10px] font-bold text-gray-400 uppercase tracking-wider">Hak Akses</span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${isAdmin ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-gray-100 text-gray-700 border-gray-200'}">
-                ${isAdmin ? '<i data-lucide="crown" class="w-3 h-3"></i> ADMIN' : '<i data-lucide="glasses" class="w-3 h-3"></i> VIEWER'}
-            </span>
-        </td>
+  showCustomModal("Edit Data Pengguna", formHtml, async () => {
+    const newNama = document.getElementById("edit-nama").value.trim();
+    const newNip = document.getElementById("edit-nip").value.trim() || "-";
+    const newRole = document.getElementById("edit-role").value;
+    const newVerified = document.getElementById("edit-verified").checked;
 
-        <td class="px-2 py-2 md:px-6 md:py-4 flex md:table-cell items-center justify-between">
-            <span class="md:hidden text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Akun</span>
-            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${isVerified ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}">
-                ${isVerified ? '<i data-lucide="check-circle" class="w-3 h-3"></i> VERIFIED' : '<i data-lucide="clock" class="w-3 h-3"></i> PENDING'}
-            </span>
-        </td>
-
-        <td class="px-2 py-4 md:px-6 md:py-4 flex md:table-cell items-center justify-end gap-2 border-t md:border-none mt-2 pt-4">
-            ${!isVerified ? `
-                <button onclick="window.updateStatus('${user.id}', true)" 
-                    class="flex-1 md:flex-none justify-center text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition shadow flex items-center gap-1 font-bold">
-                    <i data-lucide="check" class="w-3 h-3"></i> Verify
-                </button>` : ''
-            }
-            
-            <button onclick="toggleRole('${user.id}', '${user.role}')" 
-                class="flex-1 md:flex-none justify-center text-xs border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2 rounded-lg transition text-gray-700 dark:text-gray-300 font-medium">
-                ${isAdmin ? 'Demote' : 'Promote'}
-            </button>
-            
-            <button onclick="deleteUser('${user.id}')" 
-                class="justify-center text-xs bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg transition border border-red-100">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
-        </td>
-    </tr>`;
-}
-
-function renderUsers(users, fromCache = false) {
-    const tableBody = document.getElementById('userTableBody');
-
-    if (!users || users.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-500 italic">Belum ada user terdaftar.</td></tr>`;
-        state.renderedIds.clear();
-        return;
+    if (!newNama) {
+      showToast("Nama tidak boleh kosong!", "error");
+      return;
     }
 
-    // OPTIMASI: Deteksi perubahan untuk incremental update
-    const newIds = new Set(users.map(u => u.id));
-    const currentIds = state.renderedIds;
-
-    // Jika initial load atau complete rebuild diperlukan
-    if (fromCache || currentIds.size === 0 || Math.abs(newIds.size - currentIds.size) > 3) {
-        // Full render
-        const html = users.map(user => renderUserRow(user)).join('');
-        tableBody.innerHTML = html;
-        state.renderedIds = newIds;
-        state.users = users;
-    } else {
-        // Incremental update (hanya update yang berubah)
-
-        // 1. Hapus user yang tidak ada lagi
-        currentIds.forEach(id => {
-            if (!newIds.has(id)) {
-                const row = document.getElementById(`user-row-${id}`);
-                if (row) row.remove();
-                state.renderedIds.delete(id);
-            }
-        });
-
-        // 2. Update atau tambah user baru
-        users.forEach(user => {
-            const existingRow = document.getElementById(`user-row-${user.id}`);
-
-            if (existingRow) {
-                // Cek apakah data berubah (compare dengan state lama)
-                const oldUser = state.users.find(u => u.id === user.id);
-                if (JSON.stringify(oldUser) !== JSON.stringify(user)) {
-                    // Data berubah, update row
-                    const temp = document.createElement('tbody');
-                    temp.innerHTML = renderUserRow(user);
-                    existingRow.replaceWith(temp.firstChild);
-                }
-            } else {
-                // User baru, tambahkan
-                tableBody.insertAdjacentHTML('beforeend', renderUserRow(user));
-                state.renderedIds.add(user.id);
-            }
-        });
-
-        state.users = users;
-    }
-
-    // Re-render icons (hanya untuk elemen baru)
-    lucide.createIcons({ root: tableBody });
-
-    // Log untuk debugging
-    if (fromCache) {
-        console.log('🎨 Rendered from cache (instant load)');
-    } else {
-        console.log('🔄 Updated from Firebase');
-    }
-}
-
-// ===== SETUP REALTIME LISTENER =====
-userService.setupRealtimeListener((users, fromCache) => {
-    renderUsers(users, fromCache);
-});
-
-// ===== GLOBAL WINDOW ACTIONS =====
-window.updateStatus = async (id, status) => {
     try {
-        await userService.updateUserStatus(id, status);
-        showToast("Status user diperbarui", "success");
-    } catch (e) {
-        showToast(e.message, "error");
+      const userRef = doc(db, "users", uid);
+      await updateDoc(userRef, {
+        nama: newNama,
+        nip: newNip,
+        role: newRole,
+        isVerified: newVerified,
+        updatedAt: new Date().toISOString(),
+      });
+
+      showToast("Data user berhasil disimpan!", "success");
+      loadUsers();
+    } catch (error) {
+      console.error(error);
+      showToast("Gagal menyimpan: " + error.message, "error");
     }
-};
+  });
+}
 
-window.toggleRole = async (id, currentRole) => {
-    const newRole = currentRole === 'admin' ? 'viewer' : 'admin';
-    showConfirm(`Ubah role menjadi ${newRole.toUpperCase()}?`, async () => {
-        try {
-            await userService.toggleUserRole(id, currentRole);
-            showToast(`Role diubah ke ${newRole}`, "success");
-        } catch (e) {
-            showToast(e.message, "error");
-        }
-    });
-};
+// 5. Logika Delete
+function confirmDelete(uid) {
+  // FIX 2: showConfirm di ui.js Anda hanya menerima (string, callback)
+  // Jangan kirim object {title, message}
 
-window.deleteUser = async (id) => {
-    showConfirm('Hapus user ini secara permanen?', async () => {
-        try {
-            await userService.deleteUser(id);
-            showToast("User dihapus", "success");
-        } catch (e) {
-            showToast(e.message, "error");
-        }
-    });
-};
+  showConfirm(
+    "Apakah Anda yakin ingin menghapus user ini secara permanen?", // Parameter 1: String pesan
+    async () => {
+      // Parameter 2: Callback
+      try {
+        await deleteDoc(doc(db, "users", uid));
+        showToast("User berhasil dihapus.", "success");
+        loadUsers();
+      } catch (error) {
+        console.error(error);
+        showToast("Gagal menghapus: " + error.message, "error");
+      }
+    }
+  );
+}
 
-// ===== CLEANUP ON PAGE UNLOAD =====
-window.addEventListener('beforeunload', () => {
-    userService.stopListener();
+// Init saat halaman dimuat
+document.addEventListener("DOMContentLoaded", () => {
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      loadUsers();
+    }
+  });
 });

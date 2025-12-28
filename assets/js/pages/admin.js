@@ -1,6 +1,18 @@
+import { db } from "../firebase/config.js";
+import {
+  doc,
+  getDoc,
+  setDoc,
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 import { adminService } from "../firebase/admin-service.js";
-import { showToast, showConfirm, initTheme } from "../utils/ui.js";
+import {
+  showToast,
+  showConfirm,
+  initTheme,
+  showCustomModal,
+} from "../utils/ui.js";
 
+// --- HELPERS & STATE ---
 const el = (id) => document.getElementById(id);
 const state = {
   classes: new Set(),
@@ -16,6 +28,34 @@ async function initAdmin() {
 }
 
 // --- LOAD DATA ---
+async function editKepsek() {
+  // 1. Ambil Data Lama
+  const docRef = doc(db, "settings", "kepala_sekolah");
+  const snap = await getDoc(docRef);
+  const data = snap.exists() ? snap.data() : { nama: "", nip: "" };
+
+  // 2. Buat Form
+  const html = `
+        <div class="space-y-3">
+            <label class="block text-sm">Nama Kepala Sekolah</label>
+            <input id="kepsek-nama" value="${data.nama}" class="w-full border p-2 rounded">
+            
+            <label class="block text-sm">NIP</label>
+            <input id="kepsek-nip" value="${data.nip}" class="w-full border p-2 rounded">
+        </div>
+    `;
+
+  // 3. Tampilkan Modal
+  showCustomModal("Edit Data Kepala Sekolah", html, async () => {
+    const nama = document.getElementById("kepsek-nama").value;
+    const nip = document.getElementById("kepsek-nip").value;
+
+    // 4. Simpan ke Firestore
+    await setDoc(docRef, { nama, nip });
+    showToast("Data Kepala Sekolah berhasil diupdate!", "success");
+  });
+}
+
 async function loadClasses(forceRefresh = false) {
   const [select, filter] = [el("selectKelasSiswa"), el("filterKelasSiswa")];
   try {
@@ -66,18 +106,23 @@ async function loadStudentsByClass(kelasId, forceRefresh = false) {
   }
 }
 
-function renderTable(listSiswa = []) { 
-    const tbody = el('tbodySiswa');
-    if (!tbody) return;
-    
-    if (!listSiswa || listSiswa.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">📭 Kelas kosong</td></tr>';
-        return;
-    }
+function renderTable(listSiswa = []) {
+  const tbody = el("tbodySiswa");
+  if (!tbody) return;
 
-    const sorted = [...listSiswa].sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
-    
-    tbody.innerHTML = sorted.map(s => `
+  if (!listSiswa || listSiswa.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">📭 Kelas kosong</td></tr>';
+    return;
+  }
+
+  const sorted = [...listSiswa].sort((a, b) =>
+    a.nama_siswa.localeCompare(b.nama_siswa)
+  );
+
+  tbody.innerHTML = sorted
+    .map(
+      (s) => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700">
             <td class="p-4"><input type="checkbox" class="student-checkbox w-4 h-4 rounded" data-id="${s.id}"></td>
             <td class="p-4 font-medium">${s.nama_siswa}</td>
@@ -86,9 +131,11 @@ function renderTable(listSiswa = []) {
             <td class="p-4 text-center">
                 <button onclick="window.deleteStudent('${s.id}', '${s.id_kelas}')" class="text-red-400 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
             </td>
-        </tr>`).join('');
-    
-    if(window.lucide) window.lucide.createIcons({ root: tbody });
+        </tr>`
+    )
+    .join("");
+
+  if (window.lucide) window.lucide.createIcons({ root: tbody });
 }
 
 // --- DRAFT LOGIC ---
@@ -111,20 +158,20 @@ async function handleAddToDraft() {
   try {
     if (await adminService.checkNISExists(nis))
       return showToast("NIS sudah terdaftar!", "error");
-    
+
     state.draft.push({
       nama_siswa: nama,
       nis,
       id_kelas: kelas,
       status_aktif: "Aktif",
     });
-    
+
     const inputNama = el("inputNamaSiswa");
     const inputNIS = el("inputNISSiswa");
     if (inputNama) inputNama.value = "";
     if (inputNIS) inputNIS.value = "";
     if (inputNama) inputNama.focus();
-    
+
     renderDraftTable();
     showToast("Masuk antrian", "success");
   } catch (e) {
@@ -139,9 +186,9 @@ function renderDraftTable() {
   const tbody = el("tbodyDraft");
   const countDraft = el("countDraft");
   const btnUpload = el("btnUploadBatch");
-  
+
   if (!tbody) return;
-  
+
   if (countDraft) countDraft.innerText = `Antrian: ${state.draft.length}`;
   if (btnUpload) {
     btnUpload.style.display = state.draft.length ? "flex" : "none";
@@ -188,7 +235,7 @@ function setupEvents() {
   filterKelas?.addEventListener("change", (e) =>
     loadStudentsByClass(e.target.value)
   );
-  
+
   // Event: Refresh Students
   btnRefresh?.addEventListener("click", () => {
     const kls = el("filterKelasSiswa")?.value;
@@ -199,7 +246,7 @@ function setupEvents() {
       showToast("Pilih kelas", "info");
     }
   });
-  
+
   // Event: Add to Draft
   btnAddDraft?.addEventListener("click", handleAddToDraft);
 
@@ -217,7 +264,9 @@ function setupEvents() {
 
         await adminService.uploadDraftBatch(state.draft);
 
-        const affectedClasses = [...new Set(state.draft.map((d) => d.id_kelas))];
+        const affectedClasses = [
+          ...new Set(state.draft.map((d) => d.id_kelas)),
+        ];
         affectedClasses.forEach((kls) => delete state.studentsCache[kls]);
 
         showToast("Data Tersimpan!", "success");
@@ -287,12 +336,15 @@ function setupEvents() {
       if (!currentKelas) return;
 
       try {
-        await adminService.deleteStudentsBatch(Array.from(state.selectedIds), currentKelas);
+        await adminService.deleteStudentsBatch(
+          Array.from(state.selectedIds),
+          currentKelas
+        );
 
         if (state.studentsCache[currentKelas]) {
-          state.studentsCache[currentKelas] = state.studentsCache[currentKelas].filter(
-            (s) => !state.selectedIds.has(s.id)
-          );
+          state.studentsCache[currentKelas] = state.studentsCache[
+            currentKelas
+          ].filter((s) => !state.selectedIds.has(s.id));
         }
 
         state.selectedIds.clear();
@@ -316,15 +368,15 @@ function setupEvents() {
     if (!modal) return;
 
     if (promoteCount) promoteCount.innerText = state.selectedIds.size;
-    
+
     if (selectTarget) {
-      selectTarget.innerHTML = '<option value="" disabled selected>-- Pilih Kelas Tujuan --</option>';
+      selectTarget.innerHTML =
+        '<option value="" disabled selected>-- Pilih Kelas Tujuan --</option>';
       Array.from(state.classes)
         .sort()
         .forEach(
           (c) =>
-            c !== currentKelas &&
-            selectTarget.appendChild(new Option(c, c))
+            c !== currentKelas && selectTarget.appendChild(new Option(c, c))
         );
     }
 
@@ -342,12 +394,12 @@ function setupEvents() {
 
   btnClosePromote?.addEventListener("click", closeModal);
   btnCancelPromote?.addEventListener("click", closeModal);
-  
+
   // Event: Confirm Promote
   btnConfirmPromote?.addEventListener("click", async () => {
     const target = el("selectTargetPromote")?.value;
     const source = el("filterKelasSiswa")?.value;
-    
+
     if (!target) return showToast("Pilih kelas tujuan!", "warning");
     if (!source) return;
 
@@ -371,24 +423,87 @@ function setupEvents() {
 }
 
 function updateBatchUI() {
-    const cnt = state.selectedIds.size;
-    const totalInTable = document.querySelectorAll('.student-checkbox').length;
-    
-    const countSelected = el('countSelected');
-    const checkAll = el('checkAll');
-    const btnPromote = el('btnPromoteClass');
-    const btnDelete = el('btnDeleteSelected');
-    
-    if (countSelected) countSelected.innerText = cnt;
-    if (checkAll) checkAll.checked = (totalInTable > 0 && cnt === totalInTable);
-    if (btnPromote) btnPromote.disabled = (cnt === 0);
-    if (btnDelete) btnDelete.disabled = (cnt === 0);
+  const cnt = state.selectedIds.size;
+  const totalInTable = document.querySelectorAll(".student-checkbox").length;
+
+  const countSelected = el("countSelected");
+  const checkAll = el("checkAll");
+  const btnPromote = el("btnPromoteClass");
+  const btnDelete = el("btnDeleteSelected");
+
+  if (countSelected) countSelected.innerText = cnt;
+  if (checkAll) checkAll.checked = totalInTable > 0 && cnt === totalInTable;
+  if (btnPromote) btnPromote.disabled = cnt === 0;
+  if (btnDelete) btnDelete.disabled = cnt === 0;
 }
 
 // Global Handlers
 window.removeDraft = (i) => {
   state.draft.splice(i, 1);
   renderDraftTable();
+};
+
+window.openSchoolSettings = async function () {
+  const docRef = doc(db, "settings", "kepala_sekolah");
+
+  // Loading sementara
+  let currentData = { nama: "", nip: "" };
+
+  try {
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      currentData = snap.data();
+    }
+  } catch (e) {
+    console.error("Gagal ambil data settings", e);
+    // Tetap lanjut agar modal muncul meski error fetch (bisa input baru)
+  }
+
+  // Form HTML
+  const formHtml = `
+        <div class="space-y-4 text-left">
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
+                <p class="text-xs text-blue-600 dark:text-blue-300 flex items-center gap-2">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                    Data ini akan muncul di bagian Tanda Tangan PDF.
+                </p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Kepala Sekolah</label>
+                <input type="text" id="set-nama" value="${currentData.nama}" 
+                    placeholder="Contoh: Dr. H. Budi, M.Pd"
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIP (Tanpa Spasi)</label>
+                <input type="text" id="set-nip" value="${currentData.nip}" 
+                    placeholder="Contoh: 198001012000121001"
+                    class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2.5">
+            </div>
+        </div>
+    `;
+
+  // Tampilkan Modal
+  showCustomModal("Pengaturan Kepala Sekolah", formHtml, async () => {
+    const nama = document.getElementById("set-nama").value.trim();
+    const nip = document.getElementById("set-nip").value.trim();
+
+    if (!nama) {
+      showToast("Nama Kepala Sekolah wajib diisi!", "error");
+      return;
+    }
+
+    try {
+      // Simpan ke Firestore
+      await setDoc(docRef, { nama, nip }, { merge: true });
+      showToast("Data Kepala Sekolah berhasil disimpan.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast("Gagal menyimpan: " + error.message, "error");
+    }
+  });
 };
 
 window.deleteStudent = (id, kelasId) =>
