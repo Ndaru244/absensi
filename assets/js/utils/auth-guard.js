@@ -5,8 +5,24 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-
 
 export function initAuthGuard(options = { requireAdmin: false, preventLoginAccess: false }) {
     onAuthStateChanged(auth, async (user) => {
+        const isLoginPage = window.location.pathname.includes('login.html');
         if (!user) {
-            if (!options.preventLoginAccess) window.location.href = 'login.html';
+            if (!isLoginPage) window.location.href = 'login.html';
+            return;
+        }
+
+        if (isLoginPage && options.preventLoginAccess) {
+            try {
+                const userSnap = await getDoc(doc(db, "users", user.uid));
+                if (userSnap.exists()) {
+                    const data = userSnap.data();
+                    if (data.isVerified || data.role === 'admin') {
+                        window.location.replace(data.role === 'admin' ? 'admin.html' : 'index.html');
+                    }
+                }
+            } catch (e) {
+                console.error("Guard Check Error:", e);
+            }
             return;
         }
 
@@ -14,7 +30,7 @@ export function initAuthGuard(options = { requireAdmin: false, preventLoginAcces
             const userSnap = await getDoc(doc(db, "users", user.uid));
             if (!userSnap.exists()) {
                 await auth.signOut();
-                window.location.href = 'login.html';
+                if (!isLoginPage) window.location.href = 'login.html';
                 return;
             }
 

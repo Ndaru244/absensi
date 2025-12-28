@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,16 +17,32 @@
         }
     </script>
     <style>
-        .loader { border-top-color: #3b82f6; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .loader {
+            border-top-color: #3b82f6;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        @keyframes spinner {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
 
-    <div class="max-w-md w-full bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+<body
+    class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+
+    <div
+        class="max-w-md w-full bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="p-8">
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+                <div
+                    class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
                     <i data-lucide="calendar-check" class="w-6 h-6 text-blue-600 dark:text-blue-300"></i>
                 </div>
                 <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">ABSENSI</h1>
@@ -33,31 +50,13 @@
             </div>
 
             <div class="space-y-4">
-                <button id="btnGoogleLogin" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl border border-gray-300 shadow-sm transition transform active:scale-95 disabled:opacity-50">
-                    <img id="g-logo" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" class="w-5 h-5" alt="Google Logo">
+                <button id="btnGoogleLogin"
+                    class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl border border-gray-300 shadow-sm transition transform active:scale-95 disabled:opacity-50">
+                    <img id="g-logo" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png"
+                        class="w-5 h-5" alt="Google Logo">
                     <div id="loader-icon" class="hidden loader w-5 h-5 border-2 border-gray-200 rounded-full"></div>
                     <span id="btn-text">Masuk dengan Google</span>
                 </button>
-
-                <!-- <div class="relative flex py-3 items-center">
-                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                    <span class="flex-shrink mx-4 text-gray-400 text-xs uppercase font-bold">Atau</span>
-                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                </div>
-
-                <div class="space-y-3">
-                    <div class="relative">
-                        <i data-lucide="user" class="absolute left-3 top-3.5 w-5 h-5 text-gray-400"></i>
-                        <input type="text" id="username" placeholder="Username" class="w-full pl-10 p-3 rounded-xl border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    </div>
-                    <div class="relative">
-                        <i data-lucide="lock" class="absolute left-3 top-3.5 w-5 h-5 text-gray-400"></i>
-                        <input type="password" id="password" placeholder="Password" class="w-full pl-10 p-3 rounded-xl border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    </div>
-                    <button id="btnLogin" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition active:scale-95 text-sm flex justify-center items-center gap-2">
-                        LOGIN MANUAL <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div> -->
             </div>
 
             <div class="mt-8 pt-6 border-t dark:border-gray-700 text-center">
@@ -74,18 +73,17 @@
         import { auth } from './assets/js/firebase/config.js';
         import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-        lucide.createIcons();
+        initAuthGuard({ preventLoginAccess: true });
 
+        lucide.createIcons();
         const btn = document.getElementById('btnGoogleLogin');
         const btnText = document.getElementById('btn-text');
         const loader = document.getElementById('loader-icon');
         const gLogo = document.getElementById('g-logo');
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) { console.log("Session aktif:", user.email); }
-        });
-
         btn.addEventListener('click', async () => {
+            if (btn.disabled) return; // Cegah klik ganda
+
             btn.disabled = true;
             btnText.innerText = "Memproses...";
             gLogo.classList.add('hidden');
@@ -93,16 +91,26 @@
 
             try {
                 const userData = await authService.loginWithGoogle();
-                if (userData.role === 'admin') {
-                    window.location.href = 'admin.html';
-                } else if (userData.isVerified) {
-                    window.location.href = 'index.html';
-                } else {
-                    alert("Akun terdaftar! Mohon tunggu verifikasi Admin.");
-                    resetBtn();
+
+                // Cek apakah data user berhasil didapat
+                if (userData) {
+                    if (userData.role === 'admin') {
+                        window.location.replace('admin.html');
+                    } else if (userData.isVerified) {
+                        window.location.replace('index.html');
+                    } else {
+                        alert("Akun belum diverifikasi Admin.");
+                        await authService.logout();
+                        resetBtn();
+                    }
                 }
             } catch (error) {
-                alert("Gagal Masuk: " + error.message);
+                // Abaikan error jika user cuma menutup popup
+                if (error.code === 'auth/popup-closed-by-user') {
+                    console.log("User menutup jendela login.");
+                } else {
+                    alert("Gagal Masuk: " + error.message);
+                }
                 resetBtn();
             }
         });
@@ -115,4 +123,5 @@
         }
     </script>
 </body>
+
 </html>
