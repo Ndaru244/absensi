@@ -23,26 +23,28 @@
         }
 
         @keyframes spinner {
-            0% {
-                transform: rotate(0deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-            100% {
-                transform: rotate(360deg);
-            }
+        /* Optimistic UI: Fade in animation */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 
-<body
-    class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
 
-    <div
-        class="max-w-md w-full bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div class="max-w-md w-full bg-white dark:bg-darkcard rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden fade-in">
         <div class="p-8">
             <div class="text-center mb-8">
-                <div
-                    class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
                     <i data-lucide="calendar-check" class="w-6 h-6 text-blue-600 dark:text-blue-300"></i>
                 </div>
                 <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">ABSENSI</h1>
@@ -51,12 +53,20 @@
 
             <div class="space-y-4">
                 <button id="btnGoogleLogin"
-                    class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl border border-gray-300 shadow-sm transition transform active:scale-95 disabled:opacity-50">
+                    class="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-xl border border-gray-300 shadow-sm transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                     <img id="g-logo" src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png"
                         class="w-5 h-5" alt="Google Logo">
                     <div id="loader-icon" class="hidden loader w-5 h-5 border-2 border-gray-200 rounded-full"></div>
                     <span id="btn-text">Masuk dengan Google</span>
                 </button>
+
+                <!-- Status Message (NEW) -->
+                <div id="status-message" class="hidden text-center text-sm">
+                    <div class="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
+                        <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span id="status-text">Memverifikasi...</span>
+                    </div>
+                </div>
             </div>
 
             <div class="mt-8 pt-6 border-t dark:border-gray-700 text-center">
@@ -71,56 +81,102 @@
         import { initAuthGuard } from './assets/js/utils/auth-guard.js';
         import { authService } from './assets/js/firebase/auth-service.js';
         import { auth } from './assets/js/firebase/config.js';
-        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
+        // Initialize auth guard with preventLoginAccess
         initAuthGuard({ preventLoginAccess: true });
 
         lucide.createIcons();
+
         const btn = document.getElementById('btnGoogleLogin');
         const btnText = document.getElementById('btn-text');
         const loader = document.getElementById('loader-icon');
         const gLogo = document.getElementById('g-logo');
+        const statusMessage = document.getElementById('status-message');
+        const statusText = document.getElementById('status-text');
+
+        // OPTIMIZED: Single click handler with debounce
+        let isProcessing = false;
 
         btn.addEventListener('click', async () => {
-            if (btn.disabled) return; // Cegah klik ganda
-
-            btn.disabled = true;
-            btnText.innerText = "Memproses...";
-            gLogo.classList.add('hidden');
-            loader.classList.remove('hidden');
+            if (isProcessing) return; // Prevent double click
+            
+            isProcessing = true;
+            setLoading(true, "Membuka jendela login...");
 
             try {
+                // Step 1: Login with Google
                 const userData = await authService.loginWithGoogle();
 
-                // Cek apakah data user berhasil didapat
-                if (userData) {
-                    if (userData.role === 'admin') {
-                        window.location.replace('admin.html');
-                    } else if (userData.isVerified) {
-                        window.location.replace('index.html');
-                    } else {
-                        alert("Akun belum diverifikasi Admin.");
-                        await authService.logout();
-                        resetBtn();
-                    }
+                if (!userData) {
+                    throw new Error('Gagal mendapatkan data user');
                 }
-            } catch (error) {
-                // Abaikan error jika user cuma menutup popup
-                if (error.code === 'auth/popup-closed-by-user') {
-                    console.log("User menutup jendela login.");
+
+                // Step 2: Quick validation from cache (instant!)
+                setLoading(true, "Memverifikasi akun...");
+
+                // Step 3: Redirect based on role
+                if (userData.role === 'admin') {
+                    setLoading(true, "Menuju Admin Panel...");
+                    // Small delay for better UX
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    window.location.replace('admin.html');
+                } else if (userData.isVerified) {
+                    setLoading(true, "Menuju Dashboard...");
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    window.location.replace('index.html');
                 } else {
-                    alert("Gagal Masuk: " + error.message);
+                    // Unverified user
+                    alert("Akun belum diverifikasi Admin.");
+                    await authService.logout();
+                    resetBtn();
+                    isProcessing = false;
                 }
+
+            } catch (error) {
+                // Handle specific errors
+                if (error.code === 'auth/popup-closed-by-user') {
+                    console.log("User closed login window");
+                } else if (error.code === 'auth/cancelled-popup-request') {
+                    console.log("Popup request cancelled");
+                } else {
+                    console.error('Login error:', error);
+                    alert("Gagal Masuk: " + (error.message || 'Unknown error'));
+                }
+                
                 resetBtn();
+                isProcessing = false;
             }
         });
 
-        function resetBtn() {
-            btn.disabled = false;
-            btnText.innerText = "Masuk dengan Google";
-            gLogo.classList.remove('hidden');
-            loader.classList.add('hidden');
+        function setLoading(show, message = "Memproses...") {
+            btn.disabled = show;
+            
+            if (show) {
+                btnText.innerText = message;
+                gLogo.classList.add('hidden');
+                loader.classList.remove('hidden');
+                statusMessage.classList.remove('hidden');
+                statusText.innerText = message;
+            } else {
+                btnText.innerText = "Masuk dengan Google";
+                gLogo.classList.remove('hidden');
+                loader.classList.add('hidden');
+                statusMessage.classList.add('hidden');
+            }
         }
+
+        function resetBtn() {
+            setLoading(false);
+        }
+
+        // Preload destination pages for faster navigation
+        const preloadLinks = ['admin.html', 'index.html'];
+        preloadLinks.forEach(href => {
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = href;
+            document.head.appendChild(link);
+        });
     </script>
 </body>
 

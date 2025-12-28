@@ -14,7 +14,6 @@ let state = {
   currentDocId: null,
   isDirty: false,
   monthlyCache: null,
-  // Default Values sebelum data ter-load dari Firestore
   currentUser: {
     nama: "Memuat...",
     nip: "-",
@@ -28,15 +27,11 @@ let state = {
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     try {
-      // Kita ambil 2 data sekaligus (Parallel Fetching) agar cepat:
-      // 1. Data User (Guru Piket) dari 'users/{uid}'
-      // 2. Data Kepsek dari 'settings/kepala_sekolah'
       const [userSnap, kepsekSnap] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
         getDoc(doc(db, "settings", "kepala_sekolah")),
       ]);
 
-      // A. SET GURU PIKET
       if (userSnap.exists()) {
         const uData = userSnap.data();
         state.currentUser = {
@@ -47,7 +42,6 @@ onAuthStateChanged(auth, async (user) => {
         state.currentUser = { nama: user.displayName || "Admin", nip: "-" };
       }
 
-      // B. SET KEPALA SEKOLAH
       if (kepsekSnap.exists()) {
         const kData = kepsekSnap.data();
         state.kepalaSekolah = {
@@ -65,34 +59,27 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 window.exportToPDF = () => {
-  // 1. Validasi keberadaan data
   if (!state.localData)
     return showToast("Data absensi belum dimuat!", "warning");
 
-  // 2. Validasi status kunci (Policy: Export hanya bisa dilakukan jika data terkunci)
   if (!state.localData.is_locked)
     return showToast("Kunci data dulu!", "warning");
 
-  // 3. Susun Payload Lengkap
   const payload = {
     tanggal: state.localData.tanggal,
     siswa: state.localData.siswa,
-    guruPiket: state.currentUser, // Mengambil Object {nama, nip}
-    kepalaSekolah: state.kepalaSekolah, // Mengambil Object {nama, nip}
+    guruPiket: state.currentUser,
+    kepalaSekolah: state.kepalaSekolah,
   };
 
-  const kelasId = document.getElementById("kelasPicker").value;
-
-  // 5. Eksekusi fungsi dari pdf-helper.js
+  const kelasId = document.getElementById("kelasPicker")?.value;
   exportToPDF(payload, kelasId);
 };
 
 // --- INIT ---
 (async () => {
-  const [datePicker, picker] = [
-    document.getElementById("datePicker"),
-    document.getElementById("kelasPicker"),
-  ];
+  const datePicker = document.getElementById("datePicker");
+  const picker = document.getElementById("kelasPicker");
 
   if (datePicker) datePicker.valueAsDate = new Date();
 
@@ -107,28 +94,41 @@ window.exportToPDF = () => {
     }
   }
 
-  // Restore draft dari localStorage
   const saved = localStorage.getItem("absensi_draft");
   if (saved) {
-    state.localData = JSON.parse(saved);
-    if (datePicker) datePicker.value = state.localData.tanggal;
-    if (picker) picker.value = state.localData.kelas;
-    state.currentDocId = `${state.localData.tanggal}_${state.localData.kelas}`;
+    try {
+      state.localData = JSON.parse(saved);
+      if (datePicker) datePicker.value = state.localData.tanggal;
+      if (picker) picker.value = state.localData.kelas;
+      state.currentDocId = `${state.localData.tanggal}_${state.localData.kelas}`;
 
-    ["tabelAbsensi", "actionButtons"].forEach((id) =>
-      document.getElementById(id)?.classList.remove("hidden")
-    );
-    document.getElementById("loadingText").style.display = "none";
-    renderTable();
-    setDirty(true);
-    showToast("Draft dipulihkan", "info");
+      const tabelAbsensi = document.getElementById("tabelAbsensi");
+      const actionButtons = document.getElementById("actionButtons");
+      const loadingText = document.getElementById("loadingText");
+
+      if (tabelAbsensi) tabelAbsensi.classList.remove("hidden");
+      if (actionButtons) actionButtons.classList.remove("hidden");
+      if (loadingText) loadingText.style.display = "none";
+
+      renderTable();
+      setDirty(true);
+      showToast("Draft dipulihkan", "info");
+    } catch (e) {
+      console.error("Failed to restore draft:", e);
+      localStorage.removeItem("absensi_draft");
+    }
   }
 })();
 
 // --- LOGIC UTAMA ---
 window.loadRekapData = async () => {
-  const tgl = document.getElementById("datePicker").value;
-  const kls = document.getElementById("kelasPicker").value;
+  const datePicker = document.getElementById("datePicker");
+  const kelasPicker = document.getElementById("kelasPicker");
+
+  if (!datePicker || !kelasPicker) return;
+
+  const tgl = datePicker.value;
+  const kls = kelasPicker.value;
 
   if (!tgl || !kls) return showToast("Pilih Tanggal & Kelas!", "warning");
 
@@ -137,12 +137,15 @@ window.loadRekapData = async () => {
 
   state.currentDocId = newDocId;
   const loading = document.getElementById("loadingText");
-  loading.style.display = "block";
-  loading.innerText = "⏳ Mengambil data...";
-  document.getElementById("tabelAbsensi").classList.add("hidden");
+  const tabelAbsensi = document.getElementById("tabelAbsensi");
+
+  if (loading) {
+    loading.style.display = "block";
+    loading.innerText = "⏳ Mengambil data...";
+  }
+  if (tabelAbsensi) tabelAbsensi.classList.add("hidden");
 
   try {
-    // Cek draft vs server
     if (
       !(
         state.isDirty &&
@@ -169,27 +172,30 @@ window.loadRekapData = async () => {
       state.localData = data;
     }
 
-    loading.style.display = "none";
-    ["tabelAbsensi", "actionButtons"].forEach((id) =>
-      document.getElementById(id)?.classList.remove("hidden")
-    );
+    if (loading) loading.style.display = "none";
+    if (tabelAbsensi) tabelAbsensi.classList.remove("hidden");
+
+    const actionButtons = document.getElementById("actionButtons");
+    if (actionButtons) actionButtons.classList.remove("hidden");
+
     renderTable();
     handleLockState();
   } catch (e) {
-    loading.innerText = "Error: " + e.message;
+    if (loading) loading.innerText = "Error: " + e.message;
     showToast(e.message, "error");
   }
 };
 
 function renderTable() {
   const tbody = document.getElementById("tbodySiswa");
+  if (!tbody || !state.localData) return;
+
   const { siswa } = state.localData;
 
   tbody.innerHTML = Object.keys(siswa)
     .sort((a, b) => siswa[a].nama.localeCompare(siswa[b].nama))
     .map((id) => {
       const s = siswa[id];
-      // Styling badge keterangan
       const ketBadge =
         s.keterangan && s.keterangan !== "-"
           ? `<span class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
@@ -251,28 +257,24 @@ function _getColor(st) {
   return c[st];
 }
 
-// --- IMPLEMENTASI BARU: showCustomModal ---
 window.updateStatus = (id, newStatus) => {
+  if (!state.localData) return;
   if (state.localData.is_locked) return showToast("Data terkunci!", "warning");
 
   const s = state.localData.siswa[id];
+  if (!s) return;
 
-  // Fungsi internal update state
   const executeUpdate = (ket = "-") => {
     s.status = newStatus;
     s.keterangan = ket;
     setDirty(true);
     renderTable();
-    // Auto-save draft
     localStorage.setItem("absensi_draft", JSON.stringify(state.localData));
   };
 
-  // Jika Sakit, Izin, atau Alpa -> Buka Modal Keterangan
   if (["Sakit", "Izin", "Alpa"].includes(newStatus)) {
-    // Ambil keterangan lama jika ada, biar user gak ngetik ulang kalau cuma mau edit
     const oldKet = s.keterangan !== "-" ? s.keterangan : "";
 
-    // Template HTML Modal
     const htmlContent = `
             <div class="space-y-3 text-left">
                 <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg text-xs text-blue-700 dark:text-blue-300 flex gap-2">
@@ -289,15 +291,12 @@ window.updateStatus = (id, newStatus) => {
         `;
 
     showCustomModal(`Update Status: ${newStatus}`, htmlContent, () => {
-      // Callback saat tombol Simpan ditekan
-      const val = document.getElementById("input-keterangan").value.trim();
-      executeUpdate(val || "-"); // Jika kosong simpan "-"
+      const val = document.getElementById("input-keterangan")?.value.trim();
+      executeUpdate(val || "-");
     });
 
-    // Re-init icon di dalam modal
     setTimeout(() => lucide.createIcons(), 50);
   } else {
-    // Jika Hadir, langsung update tanpa modal
     executeUpdate("-");
   }
 };
@@ -305,17 +304,22 @@ window.updateStatus = (id, newStatus) => {
 window.saveDataToFirestore = () =>
   showConfirm("Simpan data ke server?", async () => {
     const btn = document.getElementById("btnSave");
+    if (!btn || !state.localData || !state.currentDocId) return;
+
     try {
       btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
       if (window.lucide) window.lucide.createIcons({ root: btn });
       btn.disabled = true;
 
+      // PENTING: Pass data kelas untuk invalidate monthly cache
       await attendanceService.saveRekap(state.currentDocId, state.localData);
 
       showToast("Data berhasil disimpan!", "success");
       setDirty(false);
-      // Hapus draft setelah sukses save
-      localStorage.removeItem("absensi_draft");
+      
+      // Clear monthly cache state (force reload next time)
+      state.monthlyCache = null;
+      
     } catch (e) {
       showToast(e.message, "error");
     } finally {
@@ -327,104 +331,133 @@ window.saveDataToFirestore = () =>
 
 function setDirty(val) {
   state.isDirty = val;
-  document.getElementById("unsavedMsg")?.classList.toggle("hidden", !val);
+  const unsavedMsg = document.getElementById("unsavedMsg");
+  if (unsavedMsg) unsavedMsg.classList.toggle("hidden", !val);
 }
 
 function handleLockState() {
-  const isLocked = state.localData.is_locked;
-  document
-    .getElementById("lockedMessage")
-    ?.classList.toggle("hidden", !isLocked);
-  ["btnSave", "btnLock"].forEach(
-    (id) =>
-      (document.getElementById(id).style.display = isLocked ? "none" : "flex")
-  );
+  if (!state.localData) return;
 
+  const isLocked = state.localData.is_locked;
+  const lockedMessage = document.getElementById("lockedMessage");
+  const btnSave = document.getElementById("btnSave");
+  const btnLock = document.getElementById("btnLock");
   const btnPdf = document.getElementById("btnExport");
-  if (isLocked) {
-    btnPdf.classList.remove("opacity-50", "cursor-not-allowed");
-    btnPdf.disabled = false;
-  } else {
-    btnPdf.classList.add("opacity-50", "cursor-not-allowed");
-    btnPdf.disabled = true;
+
+  if (lockedMessage) lockedMessage.classList.toggle("hidden", !isLocked);
+  if (btnSave) btnSave.style.display = isLocked ? "none" : "flex";
+  if (btnLock) btnLock.style.display = isLocked ? "none" : "flex";
+
+  if (btnPdf) {
+    if (isLocked) {
+      btnPdf.classList.remove("opacity-50", "cursor-not-allowed");
+      btnPdf.disabled = false;
+    } else {
+      btnPdf.classList.add("opacity-50", "cursor-not-allowed");
+      btnPdf.disabled = true;
+    }
   }
 }
 
-document.getElementById("btnLock").onclick = () =>
-  state.isDirty
-    ? showToast("Simpan perubahan dulu!", "warning")
-    : showConfirm(
-        "Kunci data permanen? Data tidak bisa diedit lagi.",
-        async () => {
-          await attendanceService.lockRekap(state.currentDocId);
-          state.localData.is_locked = true;
-          handleLockState();
-          showToast("Data terkunci", "success");
-        }
-      );
+const btnLock = document.getElementById("btnLock");
+if (btnLock) {
+  btnLock.onclick = () => {
+    if (!state.localData || !state.currentDocId) return;
 
-// --- MONTHLY REPORT (Tetap menggunakan Logic Modal HTML bawaan) ---
-// Catatan: Monthly report biasanya tabelnya besar, jadi tidak cocok dimasukkan ke showCustomModal (max-w-md).
-// Kita biarkan logic ini menggunakan container modal bawaan di HTML, tapi logicnya kita rapikan.
+    if (state.isDirty) {
+      return showToast("Simpan perubahan dulu!", "warning");
+    }
 
+    showConfirm(
+      "Kunci data permanen? Data tidak bisa diedit lagi.",
+      async () => {
+        await attendanceService.lockRekap(state.currentDocId);
+        state.localData.is_locked = true;
+        
+        // Clear monthly cache state
+        state.monthlyCache = null;
+        
+        handleLockState();
+        showToast("Data terkunci", "success");
+      }
+    );
+  };
+}
+
+// --- MONTHLY REPORT ---
 window.openMonthlyModal = () => {
-  document.getElementById("modalMonthly").classList.remove("hidden");
-  const p = document.getElementById("monthPickerReport");
-  if (!p.value) p.value = new Date().toISOString().slice(0, 7); // Default bulan ini
+  const modal = document.getElementById("modalMonthly");
+  const monthPicker = document.getElementById("monthPickerReport");
+
+  if (!modal) return;
+
+  modal.classList.remove("hidden");
+  if (monthPicker && !monthPicker.value) {
+    monthPicker.value = new Date().toISOString().slice(0, 7);
+  }
 };
 
-window.closeMonthlyModal = () =>
-  document.getElementById("modalMonthly").classList.add("hidden");
+window.closeMonthlyModal = () => {
+  const modal = document.getElementById("modalMonthly");
+  if (modal) modal.classList.add("hidden");
+};
 
 window.loadMonthlyReport = async () => {
-  const kls = document.getElementById("kelasPicker").value;
-  const month = document.getElementById("monthPickerReport").value;
+  const kelasPicker = document.getElementById("kelasPicker");
+  const monthPicker = document.getElementById("monthPickerReport");
   const tbody = document.getElementById("tbodyBulanan");
+
+  if (!kelasPicker || !monthPicker || !tbody) return;
+
+  const kls = kelasPicker.value;
+  const month = monthPicker.value;
 
   if (!kls || !month) return showToast("Pilih Kelas & Bulan!", "warning");
 
-  // Reset UI & Tampilkan Loader
   tbody.innerHTML =
     '<tr><td colspan="40" class="p-8 text-center"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div> Memproses data...</td></tr>';
-  document.getElementById("btnPrintMonthly").style.display = "none";
+
+  const btnPrint = document.getElementById("btnPrintMonthly");
+  if (btnPrint) btnPrint.style.display = "none";
 
   try {
+    // FORCE REFRESH: Pass forceRefresh = true untuk bypass cache
     const [master, reports] = await Promise.all([
       attendanceService.getMasterSiswa(kls),
-      attendanceService.getMonthlyReport(kls, month),
+      attendanceService.getMonthlyReport(kls, month, true), // Force refresh!
     ]);
 
-    // Simpan ke cache untuk proses Export PDF nanti
     state.monthlyCache = { master, reports, monthStr: month };
 
     const [year, monthNum] = month.split("-");
     const days = new Date(year, monthNum, 0).getDate();
 
-    // 1. Render Header (Nama Siswa + Tanggal 1-31 + Statistik)
-    let headHtml =
-      '<th class="p-3 sticky left-0 bg-gray-100 dark:bg-gray-700 z-30 border dark:border-gray-600 min-w-[150px] shadow-sm">Nama Siswa</th>';
-    for (let i = 1; i <= days; i++) {
-      headHtml += `<th class="p-1 text-center min-w-[30px] border dark:border-gray-600 text-[10px] text-gray-500">${i}</th>`;
-    }
-    headHtml += `
+    // Header
+    const headerRow = document.getElementById("headerRowBulanan");
+    if (headerRow) {
+      let headHtml =
+        '<th class="p-3 sticky left-0 bg-gray-100 dark:bg-gray-700 z-30 border dark:border-gray-600 min-w-[150px] shadow-sm">Nama Siswa</th>';
+      for (let i = 1; i <= days; i++) {
+        headHtml += `<th class="p-1 text-center min-w-[30px] border dark:border-gray-600 text-[10px] text-gray-500">${i}</th>`;
+      }
+      headHtml += `
             <th class="p-2 border bg-green-100 text-green-800 text-xs">H</th>
             <th class="p-2 border bg-yellow-100 text-yellow-800 text-xs">S</th>
             <th class="p-2 border bg-blue-100 text-blue-800 text-xs">I</th>
             <th class="p-2 border bg-red-100 text-red-800 text-xs">A</th>
         `;
-    document.getElementById("headerRowBulanan").innerHTML = headHtml;
+      headerRow.innerHTML = headHtml;
+    }
 
-    // 2. Mapping Data (FIXED: Menggunakan Array.from agar objek tiap hari unik)
+    // Mapping Data
     let map = {};
     Object.keys(master).forEach((id) => {
-      // Memastikan setiap hari memiliki objek "status" & "keterangan" sendiri di memori
       map[id] = Array.from({ length: days + 1 }, () => ({
         status: "-",
         keterangan: "-",
       }));
     });
 
-    // Isi map dengan data real dari laporan harian
     reports.forEach((r) => {
       const d = parseInt(r.tanggal.split("-")[2]);
       if (r.siswa) {
@@ -439,7 +472,7 @@ window.loadMonthlyReport = async () => {
       }
     });
 
-    // 3. Render Body
+    // Body
     tbody.innerHTML = Object.keys(master)
       .sort((a, b) => master[a].nama.localeCompare(master[b].nama))
       .map((id) => {
@@ -482,22 +515,27 @@ window.loadMonthlyReport = async () => {
       })
       .join("");
 
-    document.getElementById("btnPrintMonthly").style.display = "flex";
+    if (btnPrint) btnPrint.style.display = "flex";
+    
+    showToast("Data monthly berhasil dimuat", "success");
   } catch (e) {
     console.error("Monthly Load Error:", e);
     tbody.innerHTML = `<tr><td colspan="40" class="p-4 text-center text-red-500">❌ ${e.message}</td></tr>`;
+    showToast("Gagal memuat data monthly", "error");
   }
 };
 
 window.printMonthlyData = () => {
   if (state.monthlyCache?.master) {
+    const kelasPicker = document.getElementById("kelasPicker");
+    if (!kelasPicker) return;
+
     exportMonthlyPDF(
       state.monthlyCache.master,
       state.monthlyCache.reports,
       state.monthlyCache.monthStr,
-      document.getElementById("kelasPicker").value,
+      kelasPicker.value,
       {
-        // Data REAL dari Firestore
         guruPiket: state.currentUser,
         kepalaSekolah: state.kepalaSekolah,
       }

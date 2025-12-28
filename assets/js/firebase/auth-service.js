@@ -13,6 +13,58 @@ import {
 
 const provider = new GoogleAuthProvider();
 
+// ===== LOGIN SESSION CACHE =====
+const LoginCache = {
+  PREFIX: "login_session_",
+  TTL: 1000 * 60 * 60 * 24, // 24 jam
+
+  set(uid, userData) {
+    try {
+      localStorage.setItem(
+        this.PREFIX + uid,
+        JSON.stringify({
+          data: userData,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (e) {
+      console.warn("Failed to cache login session:", e);
+    }
+  },
+
+  get(uid) {
+    try {
+      const raw = localStorage.getItem(this.PREFIX + uid);
+      if (!raw) return null;
+
+      const item = JSON.parse(raw);
+      const age = Date.now() - item.timestamp;
+
+      if (age > this.TTL) {
+        this.remove(uid);
+        return null;
+      }
+
+      return item.data;
+    } catch {
+      return null;
+    }
+  },
+
+  remove(uid) {
+    localStorage.removeItem(this.PREFIX + uid);
+  },
+
+  clear() {
+    const keys = Object.keys(localStorage);
+    keys.forEach((key) => {
+      if (key.startsWith(this.PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    });
+  },
+};
+
 export const authService = {
   waitForAuth() {
     return new Promise((resolve) => {
@@ -27,14 +79,47 @@ export const authService = {
     return auth.currentUser;
   },
 
+  // OPTIMIZED: Check cache first untuk user data
+  async getUserData(uid, useCache = true) {
+    if (useCache) {
+      const cached = LoginCache.get(uid);
+      if (cached) {
+        console.log("✅ User data from cache");
+        return cached;
+      }
+    }
+
+    console.log("🔄 Fetching user data from Firebase...");
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      return null;
+    }
+
+    const userData = userSnap.data();
+    LoginCache.set(uid, userData);
+    return userData;
+  },
+
+  // OPTIMIZED: Login dengan parallel operations
   async loginWithGoogle() {
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
+
+      // Check cache first
+      const cachedData = LoginCache.get(user.uid);
+      if (cachedData) {
+        console.log("✅ Login using cached data");
+        return cachedData;
+      }
+
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
+        // New user - create profile
         const newUserData = {
           uid: user.uid,
           nama: user.displayName,
@@ -44,29 +129,43 @@ export const authService = {
           isVerified: false,
           createdAt: new Date().toISOString(),
         };
+
+        // Create user document
         await setDoc(userRef, newUserData);
+
+        // Cache immediately
+        LoginCache.set(user.uid, newUserData);
+
         return newUserData;
       }
-      return userSnap.data();
+
+      const userData = userSnap.data();
+
+      // Cache user data for future use
+      LoginCache.set(user.uid, userData);
+
+      return userData;
     } catch (error) {
       console.error("Login Error:", error);
       throw error;
     }
   },
 
-  // PERBAIKAN DI SINI: Hapus kata 'function'
   async updateProfileData(uid, data) {
     try {
       const userRef = doc(db, "users", uid);
 
-      // Menyiapkan data yang aman untuk di-update
       const safeData = {
         nama: data.nama,
-        nip: data.nip || "-", // Default strip jika kosong
+        nip: data.nip || "-",
         updatedAt: new Date().toISOString(),
       };
 
       await updateDoc(userRef, safeData);
+
+      // Invalidate cache after update
+      LoginCache.remove(uid);
+
       return { success: true };
     } catch (error) {
       console.error("Update Profile Error:", error);
@@ -75,7 +174,29 @@ export const authService = {
   },
 
   async logout() {
+    const user = auth.currentUser;
+    if (user) {
+      LoginCache.clear(); // Clear all session caches
+    }
+
+    // Clear all app caches
+    localStorage.removeItem("absensi_draft");
+
     await signOut(auth);
     window.location.href = "login.html";
   },
+
+  // Helper: Quick check if user is admin (from cache)
+  isAdmin(uid) {
+    const cached = LoginCache.get(uid);
+    return cached?.role === "admin";
+  },
+
+  // Helper: Quick check if user is verified (from cache)
+  isVerified(uid) {
+    const cached = LoginCache.get(uid);
+    return cached?.isVerified === true || cached?.role === "admin";
+  },
 };
+
+export { LoginCache };
