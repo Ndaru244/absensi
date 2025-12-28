@@ -1,4 +1,3 @@
-Siap 👍 Ini versi **Markdown yang lebih rapi, konsisten, dan enak dibaca**, tanpa mengubah isi teknisnya. Sudah saya perbaiki heading, tabel, code block, dan spacing-nya.
 
 ---
 
