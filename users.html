@@ -101,19 +101,19 @@
             <p class="text-sm text-gray-500 mt-1">Verifikasi guru baru atau atur hak akses admin.</p>
         </div>
 
-        <div class="overflow-x-hidden">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 block md:table">
-                <thead class="hidden md:table-header-group">
-                    <tr class="bg-gray-50 dark:bg-gray-800">
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase text-gray-500">User Profile</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase text-gray-500">Role</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase text-gray-500">Status</th>
-                        <th class="px-6 py-4 text-right text-xs font-bold uppercase text-gray-500">Aksi</th>
+        <div class="w-full">
+            <table class="w-full text-left border-collapse">
+                <thead class="hidden md:table-header-group bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">User Profile</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">Role</th>
+                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-right text-xs font-bold uppercase text-gray-500 tracking-wider">Aksi
+                        </th>
                     </tr>
                 </thead>
 
-                <tbody id="userTableBody"
-                    class="block md:table-row-group divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="userTableBody" class="block md:table-row-group space-y-4 md:space-y-0 p-4 md:p-0">
                 </tbody>
             </table>
         </div>
@@ -124,7 +124,7 @@
         import { initAuthGuard } from './assets/js/utils/auth-guard.js';
         import './assets/js/pages/users.js';
         import { initNavbarProfile } from './assets/js/components/navbar.js';
-        
+
         window.toggleTheme = toggleTheme;
         // 1. Init System
         lucide.createIcons();
