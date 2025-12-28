@@ -5,6 +5,17 @@ import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.6.0/f
 const provider = new GoogleAuthProvider();
 
 export const authService = {
+    waitForAuth() {
+        return new Promise((resolve) => {
+            const unsubscribe = auth.onAuthStateChanged((user) => {
+                unsubscribe();
+                resolve(user);
+            });
+        });
+    },
+    getCurrentUser() {
+        return auth.currentUser;
+    },
     async loginWithGoogle() {
         try {
             const result = await signInWithPopup(auth, provider);
