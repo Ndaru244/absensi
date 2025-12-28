@@ -16,10 +16,10 @@ async function initAdmin() {
 }
 
 // --- LOAD DATA ---
-async function loadClasses() {
+async function loadClasses(forceRefresh = false) {
   const [select, filter] = [el("selectKelasSiswa"), el("filterKelasSiswa")];
   try {
-    const data = await adminService.getClasses();
+    const data = await adminService.getClasses(forceRefresh);
     state.classes.clear();
     data.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
     const opts = data
@@ -39,16 +39,17 @@ async function loadClasses() {
   }
 }
 
-async function loadStudentsByClass(kelasId) {
+async function loadStudentsByClass(kelasId, forceRefresh = false) {
   if (!kelasId) return;
   state.selectedIds.clear();
   updateBatchUI();
 
   const tbody = el("tbodySiswa");
+  if (!tbody) return;
 
-  // CEK CACHE: Jika sudah pernah dimuat, jangan panggil Firestore lagi
-  if (state.studentsCache[kelasId]) {
-    console.log(`Using cached data for class: ${kelasId}`);
+  // CEK IN-MEMORY CACHE dulu
+  if (!forceRefresh && state.studentsCache[kelasId]) {
+    console.log(`Using in-memory cache for class: ${kelasId}`);
     renderTable(state.studentsCache[kelasId]);
     return;
   }
@@ -56,12 +57,8 @@ async function loadStudentsByClass(kelasId) {
   tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div></td></tr>`;
 
   try {
-    // Ambil data dari server (Hanya terjadi 1x per kelas)
-    const data = await adminService.getStudentsByClass(kelasId);
-
-    // Simpan ke Cache
+    const data = await adminService.getStudentsByClass(kelasId, forceRefresh);
     state.studentsCache[kelasId] = data;
-
     renderTable(data);
   } catch (err) {
     showToast(err.message, "error");
@@ -71,14 +68,13 @@ async function loadStudentsByClass(kelasId) {
 
 function renderTable(listSiswa = []) { 
     const tbody = el('tbodySiswa');
+    if (!tbody) return;
     
-    // Validasi data
     if (!listSiswa || listSiswa.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">📭 Kelas kosong</td></tr>';
         return;
     }
 
-    // Gunakan listSiswa untuk mapping
     const sorted = [...listSiswa].sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
     
     tbody.innerHTML = sorted.map(s => `
@@ -98,30 +94,37 @@ function renderTable(listSiswa = []) {
 // --- DRAFT LOGIC ---
 async function handleAddToDraft() {
   const [nama, nis, kelas] = [
-    el("inputNamaSiswa").value.trim(),
-    el("inputNISSiswa").value.trim(),
-    el("selectKelasSiswa").value,
+    el("inputNamaSiswa")?.value.trim(),
+    el("inputNISSiswa")?.value.trim(),
+    el("selectKelasSiswa")?.value,
   ];
   if (!nama || !nis || !kelas) return showToast("Lengkapi data!", "warning");
   if (state.draft.some((d) => d.nis === nis))
     return showToast("NIS sudah di draft!", "warning");
 
   const btn = el("btnAddToDraft");
+  if (!btn) return;
+
   btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Cek NIS...`;
   if (window.lucide) window.lucide.createIcons({ root: btn });
 
   try {
-    if (await adminService.checkNISEXists(nis))
+    if (await adminService.checkNISExists(nis))
       return showToast("NIS sudah terdaftar!", "error");
+    
     state.draft.push({
       nama_siswa: nama,
       nis,
       id_kelas: kelas,
       status_aktif: "Aktif",
     });
-    el("inputNamaSiswa").value = "";
-    el("inputNISSiswa").value = "";
-    el("inputNamaSiswa").focus();
+    
+    const inputNama = el("inputNamaSiswa");
+    const inputNIS = el("inputNISSiswa");
+    if (inputNama) inputNama.value = "";
+    if (inputNIS) inputNIS.value = "";
+    if (inputNama) inputNama.focus();
+    
     renderDraftTable();
     showToast("Masuk antrian", "success");
   } catch (e) {
@@ -134,11 +137,16 @@ async function handleAddToDraft() {
 
 function renderDraftTable() {
   const tbody = el("tbodyDraft");
-  el("countDraft").innerText = `Antrian: ${state.draft.length}`;
-  el("btnUploadBatch").style.display = state.draft.length ? "flex" : "none"; // Flex for icon alignment
-  el(
-    "btnUploadBatch"
-  ).innerHTML = `<i data-lucide="rocket" class="w-4 h-4"></i> UPLOAD ${state.draft.length} DATA`;
+  const countDraft = el("countDraft");
+  const btnUpload = el("btnUploadBatch");
+  
+  if (!tbody) return;
+  
+  if (countDraft) countDraft.innerText = `Antrian: ${state.draft.length}`;
+  if (btnUpload) {
+    btnUpload.style.display = state.draft.length ? "flex" : "none";
+    btnUpload.innerHTML = `<i data-lucide="rocket" class="w-4 h-4"></i> UPLOAD ${state.draft.length} DATA`;
+  }
 
   tbody.innerHTML = state.draft.length
     ? state.draft
@@ -157,30 +165,51 @@ function renderDraftTable() {
 
   if (window.lucide) {
     window.lucide.createIcons({ root: tbody });
-    window.lucide.createIcons({ root: el("btnUploadBatch") });
+    if (btnUpload) window.lucide.createIcons({ root: btnUpload });
   }
 }
 
 // --- EVENTS ---
 function setupEvents() {
-  el("filterKelasSiswa")?.addEventListener("change", (e) =>
+  const filterKelas = el("filterKelasSiswa");
+  const btnRefresh = el("btnRefreshStudents");
+  const btnAddDraft = el("btnAddToDraft");
+  const btnUpload = el("btnUploadBatch");
+  const btnSaveKelas = el("btnSaveKelas");
+  const checkAll = el("checkAll");
+  const tbodySiswa = el("tbodySiswa");
+  const btnDelete = el("btnDeleteSelected");
+  const btnPromote = el("btnPromoteClass");
+  const btnClosePromote = el("btnClosePromote");
+  const btnCancelPromote = el("btnCancelPromote");
+  const btnConfirmPromote = el("btnConfirmPromote");
+
+  // Event: Filter Kelas
+  filterKelas?.addEventListener("change", (e) =>
     loadStudentsByClass(e.target.value)
   );
-  el("btnRefreshStudents")?.addEventListener("click", () => {
-    const kls = el("filterKelasSiswa").value;
+  
+  // Event: Refresh Students
+  btnRefresh?.addEventListener("click", () => {
+    const kls = el("filterKelasSiswa")?.value;
     if (kls) {
-      delete state.studentsCache[kls]; // Hapus cache agar ambil data fresh
-      loadStudentsByClass(kls);
+      delete state.studentsCache[kls];
+      loadStudentsByClass(kls, true);
     } else {
       showToast("Pilih kelas", "info");
     }
   });
-  el("btnAddToDraft")?.addEventListener("click", handleAddToDraft);
+  
+  // Event: Add to Draft
+  btnAddDraft?.addEventListener("click", handleAddToDraft);
 
-  el("btnUploadBatch")?.addEventListener("click", () => {
+  // Event: Upload Batch
+  btnUpload?.addEventListener("click", () => {
     if (state.draft.length === 0) return;
     showConfirm(`Upload ${state.draft.length} data?`, async () => {
       const btn = el("btnUploadBatch");
+      if (!btn) return;
+
       const originalHTML = btn.innerHTML;
       try {
         btn.disabled = true;
@@ -188,17 +217,14 @@ function setupEvents() {
 
         await adminService.uploadDraftBatch(state.draft);
 
-        // UNTUK SINGLE FETCH: Cari kelas apa saja yang ada di draft dan hapus cachenya
-        const affectedClasses = [
-          ...new Set(state.draft.map((d) => d.id_kelas)),
-        ];
+        const affectedClasses = [...new Set(state.draft.map((d) => d.id_kelas))];
         affectedClasses.forEach((kls) => delete state.studentsCache[kls]);
 
         showToast("Data Tersimpan!", "success");
         state.draft = [];
         renderDraftTable();
 
-        const currentFilter = el("filterKelasSiswa").value;
+        const currentFilter = el("filterKelasSiswa")?.value;
         if (currentFilter) loadStudentsByClass(currentFilter);
       } catch (e) {
         showToast(e.message, "error");
@@ -210,29 +236,28 @@ function setupEvents() {
     });
   });
 
-  el("btnSaveKelas")?.addEventListener("click", async () => {
-    const id = el("inputKelasID").value.toUpperCase().trim();
+  // Event: Save Kelas
+  btnSaveKelas?.addEventListener("click", async () => {
+    const inputKelas = el("inputKelasID");
+    if (!inputKelas) return;
+
+    const id = inputKelas.value.toUpperCase().trim();
     if (!id || state.classes.has(id))
       return showToast("Kelas invalid / duplikat", "warning");
     try {
       await adminService.createClass(id);
       state.classes.add(id);
-      el("inputKelasID").value = "";
+      inputKelas.value = "";
       showToast("Kelas dibuat", "success");
-      loadClasses();
+      loadClasses(true);
     } catch (e) {
       showToast(e.message, "error");
     }
   });
 
-  // Checkbox Logic
-  const toggleCheck = (id, checked) => {
-    checked ? state.selectedIds.add(id) : state.selectedIds.delete(id);
-    updateBatchUI();
-  };
-  el("checkAll")?.addEventListener("change", (e) => {
+  // Event: Check All
+  checkAll?.addEventListener("change", (e) => {
     const isChecked = e.target.checked;
-    // Ambil semua checkbox yang ada di dalam tbody saja
     const checkboxes = document.querySelectorAll(".student-checkbox");
     checkboxes.forEach((cb) => {
       cb.checked = isChecked;
@@ -241,82 +266,98 @@ function setupEvents() {
     });
     updateBatchUI();
   });
-  el("tbodySiswa")?.addEventListener("click", (e) => {
-    // Pastikan yang diklik adalah input checkbox
+
+  // Event: Individual Checkbox
+  tbodySiswa?.addEventListener("click", (e) => {
     if (e.target.classList.contains("student-checkbox")) {
-      toggleCheck(e.target.dataset.id, e.target.checked);
-    }
-  });
-
-  // Batch Actions
-  el("btnDeleteSelected")?.addEventListener("click", () => {
-  const selectedCount = state.selectedIds.size;
-  if (selectedCount === 0) return;
-
-  showConfirm(`Hapus ${selectedCount} siswa terpilih?`, async () => {
-    const currentKelas = el("filterKelasSiswa").value;
-    try {
-      // 1. Eksekusi hapus di Firestore
-      await adminService.deleteStudentsBatch(Array.from(state.selectedIds));
-
-      // 2. SINKRONISASI CACHE LOKAL (PENTING!)
-      if (state.studentsCache[currentKelas]) {
-        // Filter keluar semua ID yang baru saja dihapus
-        state.studentsCache[currentKelas] = state.studentsCache[currentKelas].filter(
-          (s) => !state.selectedIds.has(s.id)
-        );
-      }
-
-      // 3. Reset state pilihan
-      state.selectedIds.clear();
-
-      // 4. Update UI
-      showToast(`${selectedCount} Siswa dihapus`, "success");
+      const id = e.target.dataset.id;
+      const checked = e.target.checked;
+      checked ? state.selectedIds.add(id) : state.selectedIds.delete(id);
       updateBatchUI();
-      
-      // Render ulang menggunakan data cache yang sudah bersih
-      renderTable(state.studentsCache[currentKelas]);
-
-    } catch (e) {
-      console.error("Batch Delete Error:", e);
-      showToast("Gagal menghapus: " + e.message, "error");
     }
   });
-});
 
-  // Promote Logic
-  const modal = el("modalPromote");
-  const closeModal = () => {
-    modal.classList.add("opacity-0");
-    setTimeout(() => modal.classList.add("hidden"), 200);
-  };
-  el("btnPromoteClass")?.addEventListener("click", () => {
-    el("promoteCount").innerText = state.selectedIds.size;
-    el("selectTargetPromote").innerHTML =
-      '<option value="" disabled selected>-- Pilih Kelas Tujuan --</option>';
-    Array.from(state.classes)
-      .sort()
-      .forEach(
-        (c) =>
-          c !== el("filterKelasSiswa").value &&
-          el("selectTargetPromote").appendChild(new Option(c, c))
-      );
+  // Event: Batch Delete
+  btnDelete?.addEventListener("click", () => {
+    const selectedCount = state.selectedIds.size;
+    if (selectedCount === 0) return;
+
+    showConfirm(`Hapus ${selectedCount} siswa terpilih?`, async () => {
+      const currentKelas = el("filterKelasSiswa")?.value;
+      if (!currentKelas) return;
+
+      try {
+        await adminService.deleteStudentsBatch(Array.from(state.selectedIds), currentKelas);
+
+        if (state.studentsCache[currentKelas]) {
+          state.studentsCache[currentKelas] = state.studentsCache[currentKelas].filter(
+            (s) => !state.selectedIds.has(s.id)
+          );
+        }
+
+        state.selectedIds.clear();
+        showToast(`${selectedCount} Siswa dihapus`, "success");
+        updateBatchUI();
+        renderTable(state.studentsCache[currentKelas]);
+      } catch (e) {
+        console.error("Batch Delete Error:", e);
+        showToast("Gagal menghapus: " + e.message, "error");
+      }
+    });
+  });
+
+  // Event: Promote Modal Open
+  btnPromote?.addEventListener("click", () => {
+    const modal = el("modalPromote");
+    const promoteCount = el("promoteCount");
+    const selectTarget = el("selectTargetPromote");
+    const currentKelas = el("filterKelasSiswa")?.value;
+
+    if (!modal) return;
+
+    if (promoteCount) promoteCount.innerText = state.selectedIds.size;
+    
+    if (selectTarget) {
+      selectTarget.innerHTML = '<option value="" disabled selected>-- Pilih Kelas Tujuan --</option>';
+      Array.from(state.classes)
+        .sort()
+        .forEach(
+          (c) =>
+            c !== currentKelas &&
+            selectTarget.appendChild(new Option(c, c))
+        );
+    }
+
     modal.classList.remove("hidden");
     setTimeout(() => modal.classList.remove("opacity-0"), 10);
   });
-  el("btnClosePromote")?.addEventListener("click", closeModal);
-  el("btnCancelPromote")?.addEventListener("click", closeModal);
-  el("btnConfirmPromote")?.addEventListener("click", async () => {
-    const target = el("selectTargetPromote").value;
-    const source = el("filterKelasSiswa").value;
+
+  // Event: Close Modal
+  const closeModal = () => {
+    const modal = el("modalPromote");
+    if (!modal) return;
+    modal.classList.add("opacity-0");
+    setTimeout(() => modal.classList.add("hidden"), 200);
+  };
+
+  btnClosePromote?.addEventListener("click", closeModal);
+  btnCancelPromote?.addEventListener("click", closeModal);
+  
+  // Event: Confirm Promote
+  btnConfirmPromote?.addEventListener("click", async () => {
+    const target = el("selectTargetPromote")?.value;
+    const source = el("filterKelasSiswa")?.value;
+    
     if (!target) return showToast("Pilih kelas tujuan!", "warning");
+    if (!source) return;
+
     try {
       await adminService.promoteStudentsBatch(
         Array.from(state.selectedIds),
-        target
+        target,
+        source
       );
 
-      // Bersihkan cache kedua kelas agar data sinkron
       delete state.studentsCache[source];
       delete state.studentsCache[target];
 
@@ -330,25 +371,16 @@ function setupEvents() {
 }
 
 function updateBatchUI() {
-    // 1. Hitung berapa banyak checkbox yang dicentang
     const cnt = state.selectedIds.size;
-    
-    // 2. Hitung berapa banyak checkbox yang ada di tabel saat ini (DOM)
     const totalInTable = document.querySelectorAll('.student-checkbox').length;
     
-    // 3. Update Label Jumlah Terpilih
-    if (el('countSelected')) el('countSelected').innerText = cnt;
-    
-    // 4. Sinkronisasi Checkbox "Check All"
-    // Centang otomatis 'Check All' jika semua baris yang tampil dipilih manual
-    if (el('checkAll')) {
-        el('checkAll').checked = (totalInTable > 0 && cnt === totalInTable);
-    }
-    
-    // 5. Enable/Disable Tombol Aksi Batch
+    const countSelected = el('countSelected');
+    const checkAll = el('checkAll');
     const btnPromote = el('btnPromoteClass');
     const btnDelete = el('btnDeleteSelected');
     
+    if (countSelected) countSelected.innerText = cnt;
+    if (checkAll) checkAll.checked = (totalInTable > 0 && cnt === totalInTable);
     if (btnPromote) btnPromote.disabled = (cnt === 0);
     if (btnDelete) btnDelete.disabled = (cnt === 0);
 }
@@ -358,12 +390,12 @@ window.removeDraft = (i) => {
   state.draft.splice(i, 1);
   renderDraftTable();
 };
+
 window.deleteStudent = (id, kelasId) =>
   showConfirm("Hapus siswa?", async () => {
     try {
-      await adminService.deleteStudent(id);
+      await adminService.deleteStudent(id, kelasId);
 
-      // Hapus dari cache lokal secara manual
       if (state.studentsCache[kelasId]) {
         state.studentsCache[kelasId] = state.studentsCache[kelasId].filter(
           (s) => s.id !== id
@@ -371,7 +403,7 @@ window.deleteStudent = (id, kelasId) =>
       }
 
       showToast("Terhapus", "success");
-      renderTable(state.studentsCache[kelasId]); // Render ulang dari cache yang sudah bersih
+      renderTable(state.studentsCache[kelasId]);
     } catch (e) {
       showToast("Gagal menghapus", "error");
     }
