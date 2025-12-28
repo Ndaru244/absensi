@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # LANGKAH KRUSIAL: Membangun file config.js dari GitHub Secrets
       - name: Inject Firebase Config
         run: |
           cat <<EOF > ./assets/js/firebase/config.js
