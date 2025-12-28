@@ -19,18 +19,17 @@ let state = {
     if (datePicker) datePicker.valueAsDate = new Date();
     if (picker) {
         try {
-            let classes = JSON.parse(localStorage.getItem('cache_kelas'));
-            if (!classes) {
-                // Jika tidak ada di cache, baru panggil Firebase (Read 1x)
-                classes = await adminService.getClasses();
-                localStorage.setItem('cache_kelas', JSON.stringify(classes));
-            }
-            classes.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+            // adminService.getClasses sudah otomatis menggunakan cache
+            const classes = await adminService.getClasses();
+            classes
+                .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
                 .forEach(c => picker.add(new Option(c.id, c.id)));
         } catch (e) {
             console.error(e);
         }
     }
+    
+    // Restore draft dari localStorage
     const saved = localStorage.getItem("absensi_draft");
     if (saved) {
         state.localData = JSON.parse(saved);
@@ -55,6 +54,7 @@ window.loadRekapData = async () => {
 
     const newDocId = `${tgl}_${kls}`;
 
+    // Jika data yang sama sudah dimuat, skip
     if(state.localData && state.currentDocId === newDocId) {
         return;
     }
@@ -66,6 +66,7 @@ window.loadRekapData = async () => {
     document.getElementById("tabelAbsensi").classList.add("hidden");
 
     try {
+        // Cek apakah ada draft yang belum disimpan
         if (
             !(
                 state.isDirty &&
@@ -73,8 +74,11 @@ window.loadRekapData = async () => {
                 state.localData?.kelas === kls
             )
         ) {
+            // attendanceService.getRekap otomatis cek draft > cache > firebase
             let data = await attendanceService.getRekap(state.currentDocId);
+            
             if (!data) {
+                // Buat lembar baru dengan master siswa
                 const master = await attendanceService.getMasterSiswa(kls);
                 if (!Object.keys(master).length) throw new Error("Kelas Kosong");
                 data = { tanggal: tgl, kelas: kls, siswa: master, is_locked: false };
@@ -83,6 +87,7 @@ window.loadRekapData = async () => {
             }
             state.localData = data;
         }
+        
         loading.style.display = "none";
         ["tabelAbsensi", "actionButtons"].forEach((id) =>
             document.getElementById(id)?.classList.remove("hidden")
@@ -105,10 +110,8 @@ function renderTable() {
             return `
         <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
             <td class="p-4 align-top">
-                <div class="font-bold text-gray-800 dark:text-gray-200">${s.nama
-                }</div>
-                <div class="text-xs text-gray-500 font-mono mb-1">${s.nis || "-"
-                }</div>
+                <div class="font-bold text-gray-800 dark:text-gray-200">${s.nama}</div>
+                <div class="text-xs text-gray-500 font-mono mb-1">${s.nis || "-"}</div>
                 ${s.keterangan && s.keterangan !== "-"
                     ? `<span class="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded flex items-center w-fit gap-1"><i data-lucide="sticky-note" class="w-3 h-3"></i> ${s.keterangan}</span>`
                     : ""
@@ -146,9 +149,7 @@ function _getColor(st) {
         Izin: "bg-blue-600 text-white ring-blue-200",
         Alpa: "bg-red-600 text-white ring-red-200",
     };
-    return `${c[st]} border-${c[st]
-        .split(" ")[0]
-        .replace("bg-", "")} ring-2 dark:ring-opacity-20`;
+    return `${c[st]} border-${c[st].split(" ")[0].replace("bg-", "")} ring-2 dark:ring-opacity-20`;
 }
 
 window.updateStatus = (id, newStatus) => {
@@ -157,6 +158,7 @@ window.updateStatus = (id, newStatus) => {
     const update = () => {
         setDirty(true);
         renderTable();
+        // Auto-save draft ke localStorage
         localStorage.setItem("absensi_draft", JSON.stringify(state.localData));
     };
     ["Izin", "Alpa"].includes(newStatus)
@@ -175,10 +177,12 @@ window.saveDataToFirestore = () =>
             btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Saving...`;
             if (window.lucide) window.lucide.createIcons({ root: btn });
             btn.disabled = true;
+            
+            // attendanceService.saveRekap otomatis update cache dan hapus draft
             await attendanceService.saveRekap(state.currentDocId, state.localData);
+            
             showToast("Tersimpan!", "success");
             setDirty(false);
-            localStorage.removeItem("absensi_draft");
         } catch (e) {
             showToast(e.message, "error");
         } finally {
@@ -202,6 +206,7 @@ function setDirty(val) {
     state.isDirty = val;
     document.getElementById("unsavedMsg")?.classList.toggle("hidden", !val);
 }
+
 function handleLockState() {
     const isLocked = state.localData.is_locked;
     document
@@ -233,8 +238,10 @@ window.openMonthlyModal = () => {
     const p = document.getElementById("monthPickerReport");
     if (!p.value) p.value = new Date().toISOString().slice(0, 7);
 };
+
 window.closeMonthlyModal = () =>
     document.getElementById("modalMonthly").classList.add("hidden");
+
 window.loadMonthlyReport = async () => {
     const [kls, month, tbody] = [
         "kelasPicker",
@@ -248,10 +255,12 @@ window.loadMonthlyReport = async () => {
         '<tr><td colspan="40" class="p-8 text-center">⏳ Memproses data...</td></tr>';
 
     try {
+        // attendanceService otomatis menggunakan cache untuk monthly report
         const [master, reports] = await Promise.all([
             attendanceService.getMasterSiswa(kls),
             attendanceService.getMonthlyReport(kls, month),
         ]);
+        
         state.monthlyCache = { master, reports, monthStr: month };
         const days = new Date(
             month.split("-")[0],
