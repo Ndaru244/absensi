@@ -3,21 +3,22 @@
 
 # 📊 Sistem Absensi Digital (Secure & Role-Based)
 
-Sistem absensi berbasis web modern menggunakan **Firebase v11+ (Modular SDK)**.
-Dibangun dengan **Tailwind CSS** untuk UI, **Lucide Icons** untuk visual, serta sistem keamanan bertingkat (**Admin vs Guru**).
+Sistem absensi berbasis web modern yang dirancang untuk efektivitas pendataan kehadiran siswa secara harian dan bulanan. Aplikasi ini menggunakan **Firebase v12+ (Modular SDK)** dengan sistem keamanan bertingkat (**Admin vs Guru**).
+
+**URL Aplikasi:** [https://absensi-internal.web.app/](https://absensi-internal.web.app/)
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** HTML5, Tailwind CSS (CDN), Lucide Icons
-* **Backend:** Firebase Firestore (NoSQL Database)
-* **Auth:** Firebase Authentication (Google Sign-In)
-* **Features:**
-
-  * PDF Export (jsPDF)
-  * Toast Notifications
-  * Real-time Listener
+* **Frontend:** HTML5, Tailwind CSS (CDN), Lucide Icons.
+* **Backend:** Firebase Firestore (NoSQL Database).
+* **Auth:** Firebase Authentication (Google Sign-In dengan metode Redirect).
+* **Fitur Utama:**
+    * **PDF Export:** Laporan harian (Portrait) dan bulanan (Landscape) via jsPDF & AutoTable.
+    * **Cache Manager:** Strategi *Cache-First* pada LocalStorage untuk efisiensi kuota Firestore.
+    * **Secure Guards:** Proteksi rute otomatis berdasarkan *Role* dan status verifikasi.
+    * **Visual Feedback:** Indikator status loading dan sukses pada aksi pengguna.
 
 ---
 
@@ -47,12 +48,14 @@ Menyimpan data pengguna aplikasi.
 
 ```json
 {
-  "nama": "Nama User",
-  "email": "user@gmail.com",
-  "photo": "URL_Foto_Google",
-  "role": "admin | viewer",
+  "nama": "Ndaru L Santosa",
+  "email": "ndarulanggeng110@gmail.com",
+  "nip": "199409230612025004",
+  "role": "viewer | admin",
   "isVerified": true,
-  "createdAt": "ISO_String"
+  "photo": "https://lh3.googleusercontent.com/...",
+  "createdAt": "2025-12-29T09:50:19.970Z",
+  "updatedAt": "2025-12-29T10:13:48.095Z"
 }
 ```
 
@@ -67,7 +70,7 @@ Master data kelas.
 
 ```json
 {
-  "nama": "X RPL 1"
+  "nama_kelas": "1A"
 }
 ```
 
@@ -82,10 +85,10 @@ Master data siswa.
 
 ```json
 {
-  "nis": "12345",
-  "nama_lengkap": "Budi Santoso",
-  "kelas": "X RPL 1",
-  "gender": "L | P"
+  "nis": "2818",
+  "nama_siswa": "MUHAMMAD ZABIR AGHA",
+  "id_kelas": "6B",
+  "status_aktif": "Aktif"
 }
 ```
 
@@ -102,13 +105,14 @@ Menyimpan **1 dokumen per Kelas per Tanggal**.
 
 ```json
 {
-  "tanggal": "2025-12-28",
-  "kelas": "X RPL 1",
-  "is_locked": false,
+  "tanggal": "2025-12-26",
+  "kelas": "6B",
+  "is_locked": true,
+  "locked_at": "December 28, 2025...",
   "siswa": {
     "DOC_ID_SISWA": {
-      "nama": "Budi Santoso",
-      "nis": "12345",
+      "nama": "MUHAMMAD ZABIR AGHA",
+      "nis": "2818",
       "status": "Hadir | Sakit | Izin | Alpa",
       "keterangan": "-"
     }
@@ -118,28 +122,48 @@ Menyimpan **1 dokumen per Kelas per Tanggal**.
 
 ---
 
+### 5. Koleksi `settings`
+
+Menyimpan  **konfigurasi global seperti data Kepala Sekolah.**. untuk kebutuhan Print PDF
+
+* **Doc ID:** `kepala_sekolah`
+
+* **Fields:**
+
+```json
+{
+  "nama": "SUPARTI",
+  "nip": "197104191996062001"
+}
+```
+
+---
+
 ## 📂 Struktur Folder
 
 ```text
 /var/www/absensi/
-├── index.html        # Dashboard Absensi (Guru)
-├── admin.html        # Master Data (Admin Only)
-├── users.html        # Manajemen User (Admin Only)
-├── login.html        # Halaman Masuk
-└── assets/
-    └── js/
-        ├── firebase/
-        │   ├── config.js            # API Keys
-        │   ├── auth-service.js      # Login / Logout
-        │   ├── admin-service.js     # CRUD Data Master
-        │   └── attendance-service.js
-        ├── pages/
-        │   ├── index.js             # Logic Dashboard
-        │   └── admin.js             # Logic Admin Page
-        └── utils/
-            ├── auth-guard.js        # Proteksi Halaman
-            ├── pdf-helper.js        # Export PDF
-            └── ui.js                # Toast, Modal, Theme
+├── index.html                # Dashboard Absensi Harian
+├── admin.html                # Manajemen Data Master (Kelas/Siswa)
+├── users.html                # Manajemen User & Akses (Admin Only)
+├── login.html                # Halaman Autentikasi Google
+├── assets/
+│   ├── js/
+│   │   ├── components/
+│   │   │   └── navbar.js       # UI Profile & Logout di Navigasi
+│   │   ├── firebase/
+│   │   │   ├── config.js       # Inisialisasi Firebase
+│   │   │   ├── auth-service.js # Logika Login & Session
+│   │   │   ├── user-service.js # CRUD & Role Management
+│   │   │   └── attendance-service.js
+│   │   ├── pages/
+│   │   │   ├── index.js        # Logic Harian & Dashboard
+│   │   │   ├── admin.js        # Logic Master Data
+│   │   │   └── users.js        # Logic Manajemen User & Caching
+│   │   └── utils/
+│   │       ├── auth-guard.js   # Proteksi Route & Role
+│   │       ├── pdf-helper.js   # Export Harian & Bulanan
+│   │       └── ui.js           # Modal, Toast, & Feedback Visual
 ```
 
 ---
@@ -156,66 +180,64 @@ Menyimpan **1 dokumen per Kelas per Tanggal**.
 
 ### 2. Konfigurasi Security Rules (Wajib)
 
-Salin kode berikut ke tab **Rules** di Firestore:
+Gunakan kode ini di Firebase Console bagian **Firestore > Rules** Kode ini mengatur hak akses berdasarkan role (admin/viewer) dan status verifikasi user.
 
 ```js
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
+    // --- GLOBAL HELPERS ---
     function isSignedIn() {
       return request.auth != null;
     }
-
-    function userDoc() {
+    // Mengambil data user saat ini untuk cek Role/Status
+    function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
-    function userExists() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function isAdmin() {
-      return isSignedIn() && userExists() && userDoc().role == 'admin';
-    }
-
-    function isVerified() {
-      return isSignedIn() && userExists() &&
-        (userDoc().isVerified == true || userDoc().role == 'admin');
-    }
-
-    // Users
+    // --- RULES ---
+    // 1. Koleksi Users (Kunci Performa Login)
     match /users/{userId} {
+      // Izinkan baca tanpa 'isVerified' agar proses login/verifikasi lancar
       allow read: if isSignedIn();
       allow create: if request.auth.uid == userId;
-      allow delete: if isAdmin();
-      allow update: if isAdmin()
-        || (request.auth.uid == userId &&
-            !request.resource.data.diff(resource.data)
-              .affectedKeys().hasAny(['role', 'isVerified']));
+      // Update role/isVerified hanya boleh oleh Admin
+      allow update: if isAdmin() || (
+        request.auth.uid == userId && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isVerified'])
+      );
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
-
-    // Kelas
+    // 2. Data Master & Settings
     match /kelas/{kelasId} {
       allow read: if isVerified();
       allow write: if isAdmin();
     }
-
-    // Siswa
+    
     match /siswa/{siswaId} {
       allow read: if isVerified();
       allow write: if isAdmin();
     }
-
-    // Absensi
+    match /settings/{docId} {
+      allow read: if isVerified();
+      allow write: if isAdmin();
+    }
+    // 3. Rekap Absensi
     match /rekap_absensi/{docId} {
       allow read, create: if isVerified();
       allow delete: if isAdmin();
-      allow update: if isAdmin()
-        || (isVerified() && resource.data.is_locked == false &&
-            !request.resource.data.diff(resource.data)
-              .affectedKeys().hasAny(['is_locked']));
+      allow update: if isAdmin() || (
+        isVerified() && 
+        resource.data.is_locked == false && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['is_locked'])
+      );
+    }
+    // --- REUSEABLE LOGIC HELPERS ---
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+    function isVerified() {
+      let data = getUserData();
+      return isSignedIn() && (data.isVerified == true || data.role == 'admin');
     }
   }
 }
