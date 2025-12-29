@@ -20,78 +20,84 @@
 
 <body class="bg-gray-50 text-gray-800 dark:bg-darkbg dark:text-gray-200 min-h-screen transition-colors duration-300">
 
-    <nav class="bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <!-- Left: Logo + Back Button -->
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
-                        <h1 class="font-bold text-xl tracking-tight text-gray-900 dark:text-white">Admin Panel</h1>
-                    </div>
-                    <a href="index.html"
-                        class="hidden md:flex text-xs font-medium text-gray-400 hover:text-indigo-500 items-center gap-1 transition">
-                        <i data-lucide="arrow-left" class="w-3 h-3"></i> Ke Absensi
-                    </a>
+    <nav class="sticky top-0 z-50 bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex h-16 items-center justify-between">
+
+                <!-- LEFT -->
+                <div class="flex items-center gap-3">
+                    <i data-lucide="layout-dashboard" class="w-6 h-6 text-indigo-600 dark:text-indigo-400"></i>
+                    <h1 class="text-lg font-bold text-gray-900 dark:text-white">
+                        Admin Panel
+                    </h1>
                 </div>
 
-                <!-- Right: Desktop Menu -->
-                <div class="hidden md:flex items-center gap-3">
+                <!-- RIGHT (Desktop) -->
+                <div class="hidden md:flex items-center gap-4">
+                    <a href="index.html"
+                        class="admin-only hidden flex items-center gap-2 px-3 py-2 text-xs font-bold text-purple-700 bg-purple-100 rounded-lg">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>Ke Absensi
+                    </a>
                     <a href="admin.html"
-                        class="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 flex items-center gap-1 transition">
+                        class="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-indigo-600">
                         <i data-lucide="database" class="w-4 h-4"></i> Data Master
                     </a>
+
                     <a href="users.html"
-                        class="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 flex items-center gap-1 transition">
+                        class="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-indigo-600">
                         <i data-lucide="users" class="w-4 h-4"></i> Users
                     </a>
 
                     <div class="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
-
-                    <!-- Profile Component (NEW) -->
                     <div id="navbar-profile"></div>
                 </div>
 
-                <!-- Mobile Menu Button -->
-                <div class="flex items-center md:hidden">
-                    <button id="mobile-menu-btn" class="text-gray-500 p-2 rounded-md">
-                        <i data-lucide="menu" class="w-6 h-6"></i>
-                    </button>
-                </div>
+                <!-- MOBILE BUTTON -->
+                <button id="mobile-menu-btn"
+                    class="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden bg-white dark:bg-darkcard border-t dark:border-gray-700">
-            <div class="px-4 pt-2 pb-4 space-y-1 shadow-lg">
-                <!-- Profile in Mobile (NEW) -->
+        <!-- MOBILE MENU -->
+        <div id="mobile-menu"
+            class="hidden md:hidden bg-white dark:bg-darkcard border-t border-gray-200 dark:border-gray-700">
+            <div class="px-4 py-4 space-y-2">
+
+                <!-- PROFILE -->
                 <div class="border-b dark:border-gray-700 pb-3 mb-2">
-                    <div id="navbar-profile-mobile" class="px-3 py-2"></div>
+                    <div id="navbar-profile-mobile"></div>
                 </div>
 
                 <a href="index.html"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">
-                    <i data-lucide="arrow-left" class="inline w-4 h-4 mr-2"></i> Ke Absensi
+                    class="admin-only hidden flex items-center gap-3 px-3 py-3 rounded-lg text-purple-700 bg-purple-50">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i> Ke Absensi
                 </a>
+
                 <a href="admin.html"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-                    <i data-lucide="database" class="inline w-4 h-4 mr-2"></i> Data Master
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="database" class="w-5 h-5"></i> Data Master
                 </a>
+
                 <a href="users.html"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-                    <i data-lucide="users" class="inline w-4 h-4 mr-2"></i> Manajemen User
+                    class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="users" class="w-5 h-5"></i> Manajemen User
                 </a>
+
                 <button onclick="toggleTheme()"
-                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">
-                    <i data-lucide="sun-moon" class="inline w-4 h-4 mr-2"></i> Ganti Tema
+                    class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <i data-lucide="sun-moon" class="w-5 h-5"></i> Ganti Tema
                 </button>
+
                 <button onclick="handleLogout()"
-                    class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                    <i data-lucide="log-out" class="inline w-4 h-4 mr-2"></i> Keluar
+                    class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
                 </button>
             </div>
         </div>
     </nav>
+
 
 
     <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -105,13 +111,10 @@
                             <i data-lucide="building-2" class="w-6 h-6 text-blue-600"></i>
                             Identitas Sekolah
                         </h2>
-                        <p class="text-sm text-gray-500 mt-1">
-                            Data ini digunakan otomatis untuk Kop Surat & Tanda Tangan PDF.
-                        </p>
                     </div>
 
                     <button onclick="openSchoolSettings()"
-                        class="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none">
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-5 py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none">
                         <i data-lucide="settings" class="w-4 h-4"></i>
                         <span>Edit Data Kepala Sekolah</span>
                     </button>
@@ -121,7 +124,7 @@
             <div
                 class="bg-blue-50 dark:bg-slate-800 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-900 flex gap-3">
                 <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
-                <p><strong>Info:</strong> Pilih kelas di tabel sebelah kanan untuk memfilter daftar siswa.</p>
+                <p><strong>Info:</strong> Data ini digunakan otomatis untuk Kop Surat & Tanda Tangan PDF.</p>
             </div>
         </section>
         <section class="lg:col-span-2 space-y-6">
