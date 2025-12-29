@@ -130,8 +130,25 @@ export const authService = {
           createdAt: new Date().toISOString(),
         };
 
-        // Create user document
+        // CRITICAL FIX: Wait for Firestore write to complete
         await setDoc(userRef, newUserData);
+
+        // ADDED: Verify write succeeded with retry logic
+        let retries = 3;
+        while (retries > 0) {
+          const verifySnap = await getDoc(userRef);
+          if (verifySnap.exists()) {
+            console.log("✅ User document created successfully");
+            break;
+          }
+          console.warn(`⚠️ Retrying document verification (${3 - retries + 1}/3)...`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          retries--;
+        }
+
+        if (retries === 0) {
+          throw new Error("Failed to create user document after retries");
+        }
 
         // Cache immediately
         LoginCache.set(user.uid, newUserData);

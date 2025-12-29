@@ -26,10 +26,15 @@ export function initAuthGuard(options = { requireAdmin: false, preventLoginAcces
 
         // OPTIMIZED: Use cached user data instead of Firestore query
         try {
-            const userData = await authService.getUserData(user.uid, true); // useCache = true
+            let userData = await authService.getUserData(user.uid, true); // useCache = true
             
             if (!userData) {
-                console.warn('User data not found, logging out...');
+                console.warn('User data not found, waiting for Firestore sync...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                userData = await authService.getUserData(user.uid, false); // Force fresh read
+            }
+            if (!userData) {
+                console.error('User data still not found after retry, logging out...');
                 await auth.signOut();
                 if (!isLoginPage) window.location.href = 'login.html';
                 return;
