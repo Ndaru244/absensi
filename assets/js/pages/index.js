@@ -476,7 +476,7 @@ window.loadMonthlyReport = async () => {
     tbody.innerHTML = Object.keys(master)
       .sort((a, b) => master[a].nama.localeCompare(master[b].nama))
       .map((id) => {
-        let rowHtml = `<td class="p-2 font-medium sticky left-0 bg-white dark:bg-darkcard border-r border-b dark:border-gray-700 z-20 whitespace-nowrap shadow-sm text-sm">${master[id].nama}</td>`;
+        let rowHtml = `<td class="p-2 font-medium sticky left-0 bg-white dark:bg-darkcard border-r border-b dark:border-gray-700 z-20 shadow-sm text-xs md:text-sm max-w-[100px] md:max-w-none break-words leading-tight" title="${master[id].nama}">${master[id].nama}</td>`;
         let st = { H: 0, S: 0, I: 0, A: 0 };
 
         for (let i = 1; i <= days; i++) {
