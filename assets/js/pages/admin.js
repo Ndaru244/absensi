@@ -5,12 +5,7 @@ import {
   setDoc,
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 import { adminService } from "../firebase/admin-service.js";
-import {
-  showToast,
-  showConfirm,
-  initTheme,
-  showCustomModal,
-} from "../utils/ui.js";
+import { showToast, showConfirm, initTheme, showCustomModal, showPrompt } from "../utils/ui.js";
 
 // --- HELPERS & STATE ---
 const el = (id) => document.getElementById(id);
@@ -62,18 +57,23 @@ async function loadClasses(forceRefresh = false) {
     const data = await adminService.getClasses(forceRefresh);
     state.classes.clear();
     data.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-    const opts = data
-      .map((c) => {
-        state.classes.add(c.id);
-        return `<option value="${c.id}">${c.id}</option>`;
-      })
-      .join("");
-    if (select)
-      select.innerHTML = '<option value="">-- Pilih Kelas --</option>' + opts;
-    if (filter)
-      filter.innerHTML =
-        '<option value="" disabled selected>-- Pilih Kelas Data --</option>' +
-        opts;
+
+    const opts = data.map(c => {
+      state.classes.add(c.id);
+      return `<option value="${c.id}">${c.id}</option>`;
+    }).join("");
+
+    // Simpan value yg sedang dipilih agar tidak reset saat refresh background
+    const prevSelect = select?.value;
+    const prevFilter = filter?.value;
+
+    if (select) select.innerHTML = '<option value="">-- Pilih Kelas --</option>' + opts;
+    if (filter) filter.innerHTML = '<option value="" disabled selected>-- Pilih Kelas Data --</option>' + opts;
+
+    // Restore selection jika masih valid
+    if (select && state.classes.has(prevSelect)) select.value = prevSelect;
+    if (filter && state.classes.has(prevFilter)) filter.value = prevFilter;
+
   } catch (e) {
     showToast("Gagal memuat kelas", "error");
   }
@@ -87,9 +87,9 @@ async function loadStudentsByClass(kelasId, forceRefresh = false) {
   const tbody = el("tbodySiswa");
   if (!tbody) return;
 
-  // CEK IN-MEMORY CACHE dulu
+  // 1. Cek In-Memory Cache (State)
   if (!forceRefresh && state.studentsCache[kelasId]) {
-    console.log(`Using in-memory cache for class: ${kelasId}`);
+    console.log(`🚀 Memory hit: ${kelasId}`);
     renderTable(state.studentsCache[kelasId]);
     return;
   }
@@ -97,9 +97,12 @@ async function loadStudentsByClass(kelasId, forceRefresh = false) {
   tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div></td></tr>`;
 
   try {
+    // 2. Cek Service Cache (LocalStorage / Firebase)
     const data = await adminService.getStudentsByClass(kelasId, forceRefresh);
-    state.studentsCache[kelasId] = data;
+    state.studentsCache[kelasId] = data; // Update Memory
     renderTable(data);
+
+    if (forceRefresh) showToast("Data siswa diperbarui", "success");
   } catch (err) {
     showToast(err.message, "error");
     tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">Gagal memuat data</td></tr>`;
@@ -111,29 +114,23 @@ function renderTable(listSiswa = []) {
   if (!tbody) return;
 
   if (!listSiswa || listSiswa.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">📭 Kelas kosong</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-400 italic">📭 Kelas kosong</td></tr>';
     return;
   }
 
-  const sorted = [...listSiswa].sort((a, b) =>
-    a.nama_siswa.localeCompare(b.nama_siswa)
-  );
+  const sorted = [...listSiswa].sort((a, b) => a.nama_siswa.localeCompare(b.nama_siswa));
 
-  tbody.innerHTML = sorted
-    .map(
-      (s) => `
+  tbody.innerHTML = sorted.map(s => `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 border-b dark:border-gray-700">
-            <td class="p-4"><input type="checkbox" class="student-checkbox w-4 h-4 rounded" data-id="${s.id}"></td>
+            <td class="p-4 w-8 text-center"><input type="checkbox" class="student-checkbox w-4 h-4 rounded cursor-pointer" data-id="${s.id}"></td>
             <td class="p-4 font-medium">${s.nama_siswa}</td>
             <td class="p-4 text-xs font-mono">${s.nis}</td>
             <td class="p-4"><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold">${s.id_kelas}</span></td>
             <td class="p-4 text-center">
-                <button onclick="window.deleteStudent('${s.id}', '${s.id_kelas}')" class="text-red-400 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                <button onclick="window.deleteStudent('${s.id}', '${s.id_kelas}')" class="text-red-400 p-2 hover:bg-red-50 rounded transition"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
             </td>
         </tr>`
-    )
-    .join("");
+  ).join("");
 
   if (window.lucide) window.lucide.createIcons({ root: tbody });
 }
@@ -197,8 +194,8 @@ function renderDraftTable() {
 
   tbody.innerHTML = state.draft.length
     ? state.draft
-        .map(
-          (d, i) => `
+      .map(
+        (d, i) => `
         <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
             <td class="p-2 font-medium">${d.nama_siswa}</td><td class="p-2 text-xs font-mono">${d.nis}</td>
             <td class="p-2 text-xs font-bold">${d.id_kelas}</td>
@@ -206,8 +203,8 @@ function renderDraftTable() {
                 <button onclick="window.removeDraft(${i})" class="text-red-400 hover:text-red-600 transition p-2 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </td>
         </tr>`
-        )
-        .join("")
+      )
+      .join("")
     : "";
 
   if (window.lucide) {
@@ -230,6 +227,7 @@ function setupEvents() {
   const btnClosePromote = el("btnClosePromote");
   const btnCancelPromote = el("btnCancelPromote");
   const btnConfirmPromote = el("btnConfirmPromote");
+  const btnRefreshStudents = el("btnRefreshStudents");
 
   // Event: Filter Kelas
   filterKelas?.addEventListener("change", (e) =>
@@ -420,6 +418,21 @@ function setupEvents() {
       showToast(e.message, "error");
     }
   });
+
+  // Event: Refresh Students (Tombol di UI)
+  btnRefreshStudents?.addEventListener("click", () => {
+    const kls = filterKelas?.value;
+    if (kls) {
+      // Hapus memory cache agar loading spinner muncul
+      delete state.studentsCache[kls];
+      // Panggil service dengan forceRefresh = true
+      loadStudentsByClass(kls, true);
+    } else {
+      showToast("Pilih kelas dulu", "info");
+    }
+  });
+
+  filterKelas?.addEventListener("change", (e) => loadStudentsByClass(e.target.value));
 }
 
 function updateBatchUI() {
@@ -522,6 +535,67 @@ window.deleteStudent = (id, kelasId) =>
     } catch (e) {
       showToast("Gagal menghapus", "error");
     }
+  }
+  );
+
+// Dipanggil saat klik "Atur Kelas"
+window.openClassManager = async (forceRefresh = false) => {
+  let classes = [];
+  const btnContent = forceRefresh ?
+    `<span class="animate-spin inline-block">↻</span> Sedang mengambil data...` :
+    `<i data-lucide="refresh-cw" class="w-4 h-4"></i> Ambil Data Terbaru (Cloud)`;
+
+  try {
+    // Ambil data (Cache First kecuali dipaksa)
+    classes = await adminService.getClasses(forceRefresh);
+    classes.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  } catch (e) {
+    showToast("Gagal memuat kelas: " + e.message, "error");
+  }
+
+  // Bangun HTML List (Hanya Nama Kelas)
+  let listHtml = '';
+  if (classes.length === 0) {
+    listHtml = `<div class="p-4 text-center text-gray-400 italic">Belum ada data kelas di Cache.</div>`;
+  } else {
+    // Tampilan Grid rapi untuk daftar kelas
+    listHtml = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">` +
+      classes.map(c => `
+                <div class="p-2 bg-gray-50 dark:bg-gray-700/50 rounded border dark:border-gray-600 text-center font-bold text-gray-700 dark:text-gray-200">
+                    ${c.id}
+                </div>
+            `).join('') +
+      `</div>`;
+  }
+
+  const modalHtml = `
+        <div class="space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
+                <p class="text-xs text-blue-800 dark:text-blue-200">
+                    <i data-lucide="info" class="w-3 h-3 inline mr-1"></i> 
+                    Daftar kelas di bawah ini tersimpan di memori browser Anda (Cache).
+                </p>
+            </div>
+
+            <button onclick="window.openClassManager(true)" 
+                class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow font-bold flex justify-center items-center gap-2 transition active:scale-95">
+                ${btnContent}
+            </button>
+
+            <div class="max-h-[300px] overflow-y-auto mt-2">
+                <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Daftar Kelas Terdeteksi:</h4>
+                ${listHtml}
+            </div>
+        </div>
+    `;
+
+  // Tampilkan Modal
+  showCustomModal("Sinkronisasi Data Kelas", modalHtml, () => {
+    // Saat modal ditutup/disimpan, reload dropdown di halaman utama
+    loadClasses(false);
   });
+
+  if (window.lucide) window.lucide.createIcons();
+};
 
 initAdmin();
