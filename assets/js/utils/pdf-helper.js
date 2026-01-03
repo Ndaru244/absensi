@@ -134,7 +134,7 @@ const drawSignatures = (doc, startY, guruPiket, kepalaSekolah) => {
   doc.setFontSize(10).setFont("helvetica", "normal");
 
   // Kiri: Guru Piket
-  doc.text("Guru Piket", leftX, yPos);
+  doc.text("Guru Kelas / Guru Piket", leftX, yPos);
   doc.text(nmGuru, leftX, lineY);
   doc.text(`NIP. ${nipGuru}`, leftX, lineY + 6);
 
