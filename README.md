@@ -142,28 +142,35 @@ Menyimpan  **konfigurasi global seperti data Kepala Sekolah.**. untuk kebutuhan 
 ## 📂 Struktur Folder
 
 ```text
-/var/www/absensi/
-├── index.html                # Dashboard Absensi Harian
-├── admin.html                # Manajemen Data Master (Kelas/Siswa)
-├── users.html                # Manajemen User & Akses (Admin Only)
-├── login.html                # Halaman Autentikasi Google
+absensi/
+├── .github/workflows/                  # Otomatisasi Deployment (CI/CD)
 ├── assets/
-│   ├── js/
-│   │   ├── components/
-│   │   │   └── navbar.js       # UI Profile & Logout di Navigasi
-│   │   ├── firebase/
-│   │   │   ├── config.js       # Inisialisasi Firebase
-│   │   │   ├── auth-service.js # Logika Login & Session
-│   │   │   ├── user-service.js # CRUD & Role Management
-│   │   │   └── attendance-service.js
-│   │   ├── pages/
-│   │   │   ├── index.js        # Logic Harian & Dashboard
-│   │   │   ├── admin.js        # Logic Master Data
-│   │   │   └── users.js        # Logic Manajemen User & Caching
-│   │   └── utils/
-│   │       ├── auth-guard.js   # Proteksi Route & Role
-│   │       ├── pdf-helper.js   # Export Harian & Bulanan
-│   │       └── ui.js           # Modal, Toast, & Feedback Visual
+│   ├── images/
+│   │   └── logo.png                    # Logo Institusi & Favicon
+│   └── js/
+│       ├── components/
+│       │   └── navbar.js               # UI Profile & Navigasi Dinamis
+│       ├── firebase/
+│       │   ├── admin-service.js        # CRUD Master Data (Kelas/Siswa) & Cache
+│       │   ├── attendance-service.js   # Transaksi Absensi & Firestore Writes
+│       │   ├── auth-service.js         # Logika Login & Session
+│       │   ├── config.js               # Inisialisasi Firebase (API Keys)
+│       │   ├── profile-service.js      # Update NIP & Identitas Guru/Users
+│       │   └── user-service.js         # CRUD & Role Management
+│       ├── pages/
+│       │   ├── index.js                # Logic Dashboard & Input Absensi (FIXED)
+│       │   ├── admin.js                # Logic Manajemen Kelas & Siswa (FIXED)
+│       │   └── users.js                # Logic Manajemen User & Client-side Caching
+│       └── utils/
+│           ├── auth-guard.js           # Middleware Proteksi Route & Role
+│           ├── pdf-helper.js           # Export PDF (jsPDF & AutoTable)
+│           └── ui.js                   # Modal, Toast, & Feedback Visual
+├── index.html                          # Dashboard Absensi Harian
+├── admin.html                          # Manajemen Data Master (Admin Only)
+├── users.html                          # Manajemen User & Akses (Admin Only)
+├── login.html                          # Halaman Autentikasi Google
+├── firebase.json                       # Konfigurasi Firebase Hosting
+└── 404.html                            # Custom Error Page Firebase
 ```
 
 ---
