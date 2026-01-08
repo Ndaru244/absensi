@@ -1,7 +1,7 @@
 
 ---
 
-# 📊 Sistem Absensi Digital (Secure & Role-Based)
+# Sistem Absensi Digital (Secure & Role-Based)
 
 Sistem absensi berbasis web modern yang dirancang untuk efektivitas pendataan kehadiran siswa secara harian dan bulanan. Aplikasi ini menggunakan **Firebase v12+ (Modular SDK)** dengan sistem keamanan bertingkat (**Admin vs Guru**).
 
@@ -9,7 +9,7 @@ Sistem absensi berbasis web modern yang dirancang untuk efektivitas pendataan ke
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 * **Frontend:** HTML5, Tailwind CSS (CDN), Lucide Icons.
 * **Backend:** Firebase Firestore (NoSQL Database).
@@ -22,7 +22,7 @@ Sistem absensi berbasis web modern yang dirancang untuk efektivitas pendataan ke
 
 ---
 
-## 🔐 Manajemen Akses (RBAC)
+## Manajemen Akses (RBAC)
 
 Sistem menggunakan **Role-Based Access Control (RBAC)**.
 Pendaftar baru **tidak langsung** bisa mengakses data.
@@ -31,13 +31,13 @@ Pendaftar baru **tidak langsung** bisa mengakses data.
 
 | Role              | Deskripsi                         | Hak Akses                                                                            |
 | ----------------- | --------------------------------- | ------------------------------------------------------------------------------------ |
-| **Viewer (Guru)** | User standar setelah registrasi   | - Absen Harian<br>- Lihat Laporan<br>- ❌ Tidak bisa edit Data Master                 |
+| **Viewer (Guru)** | User standar setelah registrasi   | - Absen Harian<br>- Lihat Laporan<br>- Tidak bisa edit Data Master                 |
 | **Admin**         | Pengelola sistem                  | - Full Access (CRUD Siswa/Kelas)<br>- Verifikasi User Baru<br>- Kunci / Buka Absensi |
-| **Pending**       | Status awal (`isVerified: false`) | ⛔ Tidak bisa masuk dashboard (Blocked)                                               |
+| **Pending**       | Status awal (`isVerified: false`) | Tidak bisa masuk dashboard (Blocked)                                               |
 
 ---
 
-## 🏗️ Arsitektur Database (Firestore)
+## Arsitektur Database (Firestore)
 
 ### 1. Koleksi `users`
 
@@ -139,7 +139,7 @@ Menyimpan  **konfigurasi global seperti data Kepala Sekolah.**. untuk kebutuhan 
 
 ---
 
-## 📂 Struktur Folder
+## Struktur Folder
 
 ```text
 absensi/
@@ -175,7 +175,7 @@ absensi/
 
 ---
 
-## ⚙️ Cara Install & Setup
+## Cara Install & Setup
 
 ### 1. Setup Firebase Console
 
@@ -185,7 +185,7 @@ absensi/
 
 ---
 
-### 2. Konfigurasi Security Rules (Wajib)
+<!-- ### 2. Konfigurasi Security Rules (Wajib)
 
 Gunakan kode ini di Firebase Console bagian **Firestore > Rules** Kode ini mengatur hak akses berdasarkan role (admin/viewer) dan status verifikasi user.
 
@@ -248,11 +248,11 @@ service cloud.firestore {
     }
   }
 }
-```
+``` -->
 
 ---
 
-### 3. Koneksi Firebase ke Kode
+### 2. Koneksi Firebase ke Kode
 
 Edit file `assets/js/firebase/config.js`:
 
@@ -266,7 +266,7 @@ const firebaseConfig = {
 
 ---
 
-### 4. Setup Admin Pertama (God Mode)
+### 3. Setup Admin Pertama (God Mode)
 
 Karena sistem menggunakan **Approval**, admin pertama perlu diaktifkan manual:
 

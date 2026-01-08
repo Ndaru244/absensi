@@ -80,30 +80,31 @@ export function initAuthGuard(options = { requireAdmin: false, preventLoginAcces
     });
 }
 
-// Helper: Update admin link visibility
+// Helper: admin link visibility
 function updateAdminUI(role) {
-    // Handle both single link and class-based links
-    const adminLink = document.getElementById('navAdminLink');
-    const adminOnlyElements = document.querySelectorAll('.admin-only');
+    const adminElements = document.querySelectorAll('.admin-only');
+    const superAdminElements = document.querySelectorAll('.super-admin-only');
 
-    if (role === 'admin') {
-        // Show single admin link
-        if (adminLink) {
-            adminLink.classList.remove('hidden');
-            adminLink.classList.add('flex');
-        }
-        
-        // Show all admin-only elements
-        adminOnlyElements.forEach(el => {
+    adminElements.forEach(el => {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+    });
+    superAdminElements.forEach(el => {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+    });
+
+    if (role === 'admin' || role === 'super_admin') {
+        adminElements.forEach(el => {
             el.classList.remove('hidden');
             el.classList.add('flex');
         });
-    } else {
-        // Remove admin elements for non-admins
-        if (adminLink) {
-            adminLink.remove();
-        }
-        adminOnlyElements.forEach(el => el.remove());
+    }
+    if (role === 'super_admin') {
+        superAdminElements.forEach(el => {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        });
     }
 }
 

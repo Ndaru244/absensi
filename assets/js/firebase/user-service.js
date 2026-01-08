@@ -5,7 +5,6 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 // ===== USER CACHE MANAGER =====
@@ -18,34 +17,22 @@ const UserCache = {
     try {
       localStorage.setItem(
         this.PREFIX + this.CACHE_KEY,
-        JSON.stringify({
-          data,
-          timestamp: Date.now(),
-        })
+        JSON.stringify({ data, timestamp: Date.now() })
       );
-    } catch (e) {
-      console.warn("Failed to cache users:", e);
-    }
+    } catch (e) { console.warn("Cache error:", e); }
   },
 
   get() {
     try {
       const raw = localStorage.getItem(this.PREFIX + this.CACHE_KEY);
       if (!raw) return null;
-
       const item = JSON.parse(raw);
-      const age = Date.now() - item.timestamp;
-
-      // Cache valid selama TTL
-      if (age > this.TTL) {
+      if (Date.now() - item.timestamp > this.TTL) {
         this.clear();
         return null;
       }
-
       return item.data;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   },
 
   clear() {
@@ -53,109 +40,48 @@ const UserCache = {
   },
 };
 
-// ===== USER SERVICE =====
 export const userService = {
-  _snapshot: null, // Menyimpan unsubscribe function
-
-  // 1. GET USERS (Initial Load dengan Cache)
-  async getUsers(forceRefresh = false) {
+  // 1. GET ALL USERS (Cache First)
+  async getAllUsers(forceRefresh = false) {
     if (!forceRefresh) {
       const cached = UserCache.get();
-      if (cached) {
-        console.log("✅ Users loaded from cache");
-        return cached;
-      }
+      if (cached) return cached;
     }
 
-    console.log("🔄 Fetching users from Firebase...");
     const snap = await getDocs(collection(db, "users"));
-    const users = [];
+    const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    snap.forEach((docSnap) => {
-      users.push({
-        id: docSnap.id,
-        ...docSnap.data(),
-      });
+    const roleOrder = {
+      'super_admin': 4,
+      'admin': 3,
+      'guru': 2,
+      'viewer': 1
+    };
+    data.sort((a, b) => {
+      const roleDiff = (roleOrder[b.role] || 1) - (roleOrder[a.role] || 1);
+      if (roleDiff !== 0) return roleDiff;
+      return a.nama.localeCompare(b.nama);
     });
 
-    UserCache.set(users);
-    return users;
+    UserCache.set(data);
+    return data;
   },
 
-  // 2. SETUP REALTIME LISTENER (Dengan Initial Cache)
-  setupRealtimeListener(callback) {
-    // Cleanup listener lama jika ada
-    if (this._snapshot) {
-      this._snapshot();
-    }
-
-    const usersRef = collection(db, "users");
-    let isInitialLoad = true;
-
-    this._snapshot = onSnapshot(
-      usersRef,
-      (snapshot) => {
-        // OPTIMASI: Gunakan cache untuk initial load
-        if (isInitialLoad) {
-          const cached = UserCache.get();
-          if (cached) {
-            console.log("✅ Initial load from cache, waiting for changes...");
-            callback(cached, true); // true = dari cache
-            isInitialLoad = false;
-            return;
-          }
-        }
-
-        // Proses data dari snapshot
-        const users = [];
-        snapshot.forEach((docSnap) => {
-          users.push({
-            id: docSnap.id,
-            ...docSnap.data(),
-          });
-        });
-
-        // Update cache
-        UserCache.set(users);
-
-        // Callback dengan data baru
-        callback(users, false); // false = dari Firebase
-        isInitialLoad = false;
-      },
-      (error) => {
-        console.error("Realtime listener error:", error);
-      }
-    );
-
-    return this._snapshot; // Return unsubscribe function
+  // 2. TOGGLE VERIFIED
+  async toggleVerified(userId, currentStatus) {
+    await updateDoc(doc(db, "users", userId), { isVerified: !currentStatus });
+    UserCache.clear();
   },
 
-  // 3. UPDATE USER STATUS
-  async updateUserStatus(userId, isVerified) {
-    await updateDoc(doc(db, "users", userId), { isVerified });
-    // Cache akan otomatis update via onSnapshot
+  // 3. UPDATE USER
+  async updateUser(userId, updateData) {
+    await updateDoc(doc(db, "users", userId), updateData);
+    UserCache.clear();
   },
 
-  // 4. TOGGLE USER ROLE
-  async toggleUserRole(userId, currentRole) {
-    const newRole = currentRole === "admin" ? "viewer" : "admin";
-    await updateDoc(doc(db, "users", userId), { role: newRole });
-    return newRole;
-  },
-
-  // 5. DELETE USER
-  async deleteUser(userId) {
+  // 4. DELETE USER
+  async deleteUserDoc(userId) {
     await deleteDoc(doc(db, "users", userId));
-    // Cache akan otomatis update via onSnapshot
-  },
-
-  // 6. STOP LISTENER
-  stopListener() {
-    if (this._snapshot) {
-      this._snapshot();
-      this._snapshot = null;
-    }
-  },
+    UserCache.clear();
+  }
 };
-
-export { UserCache };
