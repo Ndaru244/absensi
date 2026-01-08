@@ -1,7 +1,38 @@
 import { profileService } from '../firebase/profile-service.js';
 import { authService } from '../firebase/auth-service.js';
 
-// ===== NAVBAR COMPONENT =====
+// ===== HELPER: ROLE UI CONFIG =====
+// Menyamakan warna badge dengan halaman Users Management
+function getRoleMetadata(role) {
+    switch (role) {
+        case 'super_admin':
+            return {
+                label: 'SUPER ADMIN',
+                badge: 'bg-rose-100 text-rose-700 border-rose-200',
+                icon: 'shield-alert'
+            };
+        case 'admin':
+            return {
+                label: 'GURU PIKET',
+                badge: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+                icon: 'shield-check'
+            };
+        case 'guru': // TAMBAHAN BARU
+            return {
+                label: 'GURU',
+                badge: 'bg-blue-50 text-blue-700 border-blue-200',
+                icon: 'graduation-cap' // atau 'user'
+            };
+        default: // viewer
+            return {
+                label: 'VIEWER',
+                badge: 'bg-gray-100 text-gray-600 border-gray-200',
+                icon: 'eye'
+            };
+    }
+}
+
+// ===== MAIN FUNCTION =====
 export async function initNavbarProfile() {
     try {
         // TUNGGU: Jangan panggil profile sebelum Auth siap
@@ -9,7 +40,9 @@ export async function initNavbarProfile() {
 
         if (!user) return renderFallbackProfile();
 
+        // Load profile dari cache/server
         const profile = await profileService.getCurrentUserProfile();
+        
         renderProfileButton(profile);
         renderMobileProfile(profile);
         setupProfileDropdown();
@@ -19,207 +52,192 @@ export async function initNavbarProfile() {
     }
 }
 
-// Render Profile Button
+// 1. RENDER DESKTOP BUTTON
 function renderProfileButton(profile) {
     const profileContainer = document.getElementById('navbar-profile');
     if (!profileContainer) return;
 
     const avatarUrl = profileService.getAvatarUrl(profile);
     const displayName = profileService.getDisplayName(profile);
-    const role = profile.role || 'viewer';
-    const roleLabel = role === 'admin' ? 'Admin' : 'Viewer';
-    const roleBadge = role === 'admin'
-        ? 'bg-purple-100 text-purple-700 border-purple-200'
-        : 'bg-gray-100 text-gray-600 border-gray-200';
+    
+    // Ambil metadata role (Warna & Label)
+    const { label, badge, icon } = getRoleMetadata(profile.role);
 
     profileContainer.innerHTML = `
         <div class="relative">
             <button id="profile-dropdown-btn" 
-                    class="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg px-2 py-1.5 transition-all group">
+                    class="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl px-2 py-1.5 transition-all group border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+                
                 <img src="${avatarUrl}" 
                      alt="${displayName}"
-                     class="w-8 h-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600 group-hover:border-indigo-400 transition">
-                <div class="hidden md:flex flex-col items-start">
-                    <span class="text-sm font-bold text-gray-800 dark:text-white">${displayName}</span>
-                    <span class="text-[10px] font-medium ${roleBadge} px-1.5 py-0.5 rounded border">${roleLabel}</span>
+                     class="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-600 group-hover:shadow-sm transition">
+                
+                <div class="hidden md:flex flex-col items-start text-left">
+                    <span class="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">${displayName}</span>
+                    <span class="text-[10px] font-bold ${badge} px-1.5 py-0.5 rounded border mt-0.5 inline-flex items-center gap-1">
+                        ${label}
+                    </span>
                 </div>
-                <i data-lucide="chevron-down" class="hidden md:block w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition"></i>
+                
+                <i data-lucide="chevron-down" class="hidden md:block w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition ml-1"></i>
             </button>
             
-            <!-- Dropdown Menu -->
             <div id="profile-dropdown" 
-                 class="hidden absolute right-0 mt-2 w-72 bg-white dark:bg-darkcard rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+                 class="hidden absolute right-0 mt-2 w-72 bg-white dark:bg-darkcard rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50 ring-1 ring-black ring-opacity-5 focus:outline-none transform opacity-0 scale-95 transition-all duration-100 origin-top-right">
                 
-                <!-- Profile Header -->
-                <div class="px-4 py-3 border-b dark:border-gray-700">
-                    <div class="flex items-center gap-3">
+                <div class="px-5 py-4 border-b dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                    <div class="flex items-center gap-4">
                         <img src="${avatarUrl}" 
                              alt="${displayName}"
-                             class="w-12 h-12 rounded-full object-cover border-2 border-indigo-400">
-                        <div class="flex-1">
-                            <p class="font-bold text-gray-900 dark:text-white">${displayName}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">${profile.email}</p>
-                            <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-bold ${roleBadge} px-2 py-0.5 rounded border">
-                                <i data-lucide="${role === 'admin' ? 'crown' : 'user'}" class="w-3 h-3"></i>
-                                ${roleLabel.toUpperCase()}
+                             class="w-14 h-14 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-sm">
+                        <div class="flex-1 overflow-hidden">
+                            <p class="font-bold text-gray-900 dark:text-white truncate">${displayName}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">${profile.email}</p>
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold ${badge} px-2 py-0.5 rounded border">
+                                <i data-lucide="${icon}" class="w-3 h-3"></i>
+                                ${label}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Menu Items -->
-                <div class="py-1">
+                <div class="py-2 px-2 space-y-1">
                     <button onclick="window.refreshProfile()" 
-                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition">
-                        <i data-lucide="refresh-cw" class="w-4 h-4 text-gray-400"></i>
+                            class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-400 rounded-lg flex items-center gap-3 transition">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                         Refresh Profile
                     </button>
                     
                     <button onclick="window.toggleTheme()" 
-                            class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 transition">
-                        <i data-lucide="sun-moon" class="w-4 h-4 text-gray-400"></i>
+                            class="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-3 transition">
+                        <i data-lucide="sun-moon" class="w-4 h-4"></i>
                         Ganti Tema
                     </button>
                     
-                    <div class="border-t dark:border-gray-700 my-1"></div>
+                    <div class="border-t dark:border-gray-700 my-1 mx-2"></div>
                     
                     <button onclick="window.handleLogout()" 
-                            class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition font-medium">
+                            class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-700 rounded-lg flex items-center gap-3 transition font-medium">
                         <i data-lucide="log-out" class="w-4 h-4"></i>
-                        Keluar
+                        Keluar Aplikasi
                     </button>
                 </div>
             </div>
         </div>
     `;
 
-    // Re-render lucide icons
-    if (window.lucide) {
-        window.lucide.createIcons({ root: profileContainer });
-    }
+    if (window.lucide) window.lucide.createIcons({ root: profileContainer });
 }
 
-// Setup Dropdown Toggle
-function setupProfileDropdown() {
-    const btn = document.getElementById('profile-dropdown-btn');
-    const dropdown = document.getElementById('profile-dropdown');
-
-    if (!btn || !dropdown) return;
-
-    // Toggle dropdown
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('hidden');
-    });
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-            dropdown.classList.add('hidden');
-        }
-    });
-
-    // Close on escape
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            dropdown.classList.add('hidden');
-        }
-    });
-}
-
-// Render Mobile Profile
+// 2. RENDER MOBILE PROFILE
 function renderMobileProfile(profile) {
     const mobileContainer = document.getElementById('navbar-profile-mobile');
     if (!mobileContainer) return;
 
     const avatarUrl = profileService.getAvatarUrl(profile);
     const displayName = profileService.getDisplayName(profile);
-    const role = profile.role || 'viewer';
-    const roleLabel = role === 'admin' ? 'Admin' : 'Viewer';
-    const roleBadge = role === 'admin'
-        ? 'bg-purple-100 text-purple-700 border-purple-200'
-        : 'bg-gray-100 text-gray-600 border-gray-200';
+    const { label, badge, icon } = getRoleMetadata(profile.role);
 
     mobileContainer.innerHTML = `
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
             <img src="${avatarUrl}" 
                  alt="${displayName}"
-                 class="w-12 h-12 rounded-full object-cover border-2 border-indigo-400">
-            <div class="flex-1">
-                <p class="font-bold text-gray-900 dark:text-white">${displayName}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">${profile.email}</p>
-                <span class="inline-flex items-center gap-1 mt-1 text-[10px] font-bold ${roleBadge} px-2 py-0.5 rounded border">
-                    <i data-lucide="${role === 'admin' ? 'crown' : 'user'}" class="w-3 h-3"></i>
-                    ${roleLabel.toUpperCase()}
+                 class="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-600">
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-gray-900 dark:text-white truncate text-sm">${displayName}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 truncate mb-1">${profile.email}</p>
+                <span class="inline-flex items-center gap-1 text-[10px] font-bold ${badge} px-2 py-0.5 rounded border">
+                    <i data-lucide="${icon}" class="w-3 h-3"></i>
+                    ${label}
                 </span>
             </div>
         </div>
     `;
 
-    if (window.lucide) {
-        window.lucide.createIcons({ root: mobileContainer });
-    }
+    if (window.lucide) window.lucide.createIcons({ root: mobileContainer });
 }
 
-// Fallback Profile (if error)
+// 3. SETUP DROPDOWN INTERACTION
+function setupProfileDropdown() {
+    const btn = document.getElementById('profile-dropdown-btn');
+    const dropdown = document.getElementById('profile-dropdown');
+
+    if (!btn || !dropdown) return;
+
+    // Toggle dropdown with animation classes
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (dropdown.classList.contains('hidden')) {
+            dropdown.classList.remove('hidden');
+            // Sedikit delay untuk animasi opacity
+            setTimeout(() => {
+                dropdown.classList.remove('opacity-0', 'scale-95');
+                dropdown.classList.add('opacity-100', 'scale-100');
+            }, 10);
+        } else {
+            closeDropdown();
+        }
+    });
+
+    function closeDropdown() {
+        dropdown.classList.remove('opacity-100', 'scale-100');
+        dropdown.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => {
+            dropdown.classList.add('hidden');
+        }, 100);
+    }
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+            closeDropdown();
+        }
+    });
+}
+
+// 4. FALLBACK (ERROR STATE)
 function renderFallbackProfile() {
     const profileContainer = document.getElementById('navbar-profile');
     if (profileContainer) {
         profileContainer.innerHTML = `
             <button onclick="window.handleLogout()" 
-                    class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-                <span class="hidden md:inline">Keluar</span>
+                    class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>Login Ulang</span>
             </button>
         `;
-        if (window.lucide) {
-            window.lucide.createIcons({ root: profileContainer });
-        }
-    }
-
-    const mobileContainer = document.getElementById('navbar-profile-mobile');
-    if (mobileContainer) {
-        mobileContainer.innerHTML = `
-            <div class="text-center text-gray-500 dark:text-gray-400 text-sm">
-                <i data-lucide="alert-circle" class="w-5 h-5 inline"></i>
-                <p class="mt-1">Profile tidak dapat dimuat</p>
-            </div>
-        `;
-        if (window.lucide) {
-            window.lucide.createIcons({ root: mobileContainer });
-        }
+        if (window.lucide) window.lucide.createIcons({ root: profileContainer });
     }
 }
 
-// Global Functions
+// ===== GLOBAL HANDLERS (Diakses via onclick HTML) =====
+
 window.refreshProfile = async () => {
+    const btn = document.querySelector('#profile-dropdown-btn i[data-lucide="chevron-down"]');
+    if(btn) btn.classList.add('animate-spin'); // Visual feedback
+    
     try {
-        const profile = await profileService.getCurrentUserProfile(true);
+        const profile = await profileService.getCurrentUserProfile(true); // Force Refresh
         renderProfileButton(profile);
         renderMobileProfile(profile);
-        setupProfileDropdown();
+        setupProfileDropdown(); // Re-attach listeners
 
-        if (window.showToast) {
-            window.showToast('Profile diperbarui!', 'success');
-        }
+        if (window.showToast) window.showToast('Profile data diperbarui', 'success');
     } catch (error) {
-        console.error('Failed to refresh profile:', error);
-        if (window.showToast) {
-            window.showToast('Gagal memuat profile', 'error');
-        }
+        console.error('Refresh failed:', error);
     }
 };
 
 window.handleLogout = async () => {
+    // Gunakan showConfirm dari ui.js jika tersedia, fallback ke confirm bawaan
+    const action = async () => {
+        profileService.clearCache();
+        await authService.logout();
+    };
+
     if (window.showConfirm) {
-        window.showConfirm('Yakin ingin keluar?', async () => {
-            profileService.clearCache();
-            await authService.logout();
-        });
-    } else {
-        if (confirm('Yakin ingin keluar?')) {
-            profileService.clearCache();
-            await authService.logout();
-        }
+        window.showConfirm('Apakah Anda yakin ingin keluar dari aplikasi?', action);
+    } else if (confirm('Keluar dari aplikasi?')) {
+        action();
     }
 };

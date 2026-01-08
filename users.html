@@ -19,52 +19,36 @@
             document.documentElement.classList.add('dark');
         }
     </script>
-    <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
-        }
-    </style>
 </head>
 
-<body class="bg-gray-50 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen">
+<body class="bg-gray-50 dark:bg-darkbg text-gray-800 dark:text-gray-200 min-h-screen transition-colors duration-300">
 
     <nav class="sticky top-0 z-50 bg-white dark:bg-darkcard border-b border-gray-200 dark:border-gray-700">
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex h-16 items-center justify-between">
 
-                <!-- LEFT -->
                 <div class="flex items-center gap-3">
-                    <i data-lucide="layout-dashboard" class="w-6 h-6 text-indigo-600 dark:text-indigo-400"></i>
-                    <h1 class="text-lg font-bold text-gray-900 dark:text-white">
-                        Admin Panel
+                    <div class="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg">
+                        <i data-lucide="shield-check" class="w-6 h-6 text-indigo-600 dark:text-indigo-400"></i>
+                    </div>
+                    <h1 class="text-lg font-bold text-gray-900 dark:text-white hidden sm:block">
+                        Panel Admin
                     </h1>
                 </div>
 
-                <!-- RIGHT (Desktop) -->
                 <div class="hidden md:flex items-center gap-4">
                     <a href="index.html"
-                        class="admin-only hidden flex items-center gap-2 px-3 py-2 text-xs font-bold text-purple-700 bg-purple-100 rounded-lg">
-                        <i data-lucide="arrow-left" class="w-5 h-5"></i>Ke Absensi
+                        class="flex items-center gap-2 px-3 py-2 text-xs font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali ke Absensi
                     </a>
+                    
                     <a href="admin.html"
-                        class="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-indigo-600">
+                        class="admin-only hidden flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400">
                         <i data-lucide="database" class="w-4 h-4"></i> Data Master
                     </a>
 
                     <a href="users.html"
-                        class="flex items-center gap-1 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-indigo-600">
+                        class="super-admin-only hidden flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg">
                         <i data-lucide="users" class="w-4 h-4"></i> Users
                     </a>
 
@@ -72,7 +56,6 @@
                     <div id="navbar-profile"></div>
                 </div>
 
-                <!-- MOBILE BUTTON -->
                 <button id="mobile-menu-btn"
                     class="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                     <i data-lucide="menu" class="w-6 h-6"></i>
@@ -80,104 +63,116 @@
             </div>
         </div>
 
-        <!-- MOBILE MENU -->
-        <div id="mobile-menu"
-            class="hidden md:hidden bg-white dark:bg-darkcard border-t border-gray-200 dark:border-gray-700">
+        <div id="mobile-menu" class="hidden md:hidden bg-white dark:bg-darkcard border-t border-gray-200 dark:border-gray-700">
             <div class="px-4 py-4 space-y-2">
-
-                <!-- PROFILE -->
                 <div class="border-b dark:border-gray-700 pb-3 mb-2">
                     <div id="navbar-profile-mobile"></div>
                 </div>
-
-                <a href="index.html"
-                    class="admin-only hidden flex items-center gap-3 px-3 py-3 rounded-lg text-purple-700 bg-purple-50">
-                    <i data-lucide="arrow-left" class="w-5 h-5"></i> Ke Absensi
+                <a href="index.html" class="flex items-center gap-3 px-3 py-3 rounded-lg text-purple-700 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300">
+                    <i data-lucide="arrow-left" class="w-5 h-5"></i> Kembali ke Absensi
                 </a>
-
-                <a href="admin.html"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <a href="admin.html" class="admin-only hidden flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100">
                     <i data-lucide="database" class="w-5 h-5"></i> Data Master
                 </a>
-
-                <a href="users.html"
-                    class="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <a href="users.html" class="super-admin-only hidden flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100">
                     <i data-lucide="users" class="w-5 h-5"></i> Manajemen User
                 </a>
-
-                <button onclick="toggleTheme()"
-                    class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                <button onclick="toggleTheme()" class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100">
                     <i data-lucide="sun-moon" class="w-5 h-5"></i> Ganti Tema
                 </button>
-
-                <button onclick="handleLogout()"
-                    class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <button onclick="handleLogout()" class="flex w-full items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50">
                     <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
                 </button>
             </div>
         </div>
     </nav>
-
-    <main class="max-w-7xl mx-auto mt-5 px-4 sm:px-6 lg:px-8">
-        <!-- Add after the <h2> title, before the table -->
-        <div class="mb-6">
-            <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
-                <div>
-                    <h2 class="text-xl md:text-2xl font-bold flex items-center gap-2">
-                        <i data-lucide="users" class="w-6 h-6 text-blue-500"></i> Kontrol Akses Pengguna
-                    </h2>
-                    <p class="text-sm text-gray-500 mt-1">Verifikasi guru baru atau atur hak akses admin.</p>
-                </div>
-
-                <button id="btnRefreshUsers"
-                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2 transition active:scale-95">
-                    <i data-lucide="refresh-cw" id="refreshIcon" class="w-4 h-4"></i>
-                    <span id="refreshText">Refresh</span>
-                </button>
-            </div>
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <div class="mb-8">
+            <h1 class="text-2xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="users" class="w-8 h-8 text-indigo-600"></i>
+                Manajemen Pengguna
+            </h1>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                Kelola hak akses (Role), verifikasi akun guru baru, dan hapus pengguna yang tidak aktif.
+            </p>
         </div>
 
-        <div class="w-full">
-            <table class="w-full text-left border-collapse">
-                <thead class="hidden md:table-header-group bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">User Profile</th>
-                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">Role</th>
-                        <th class="px-6 py-4 text-xs font-bold uppercase text-gray-500 tracking-wider">Status</th>
-                        <th class="px-6 py-4 text-right text-xs font-bold uppercase text-gray-500 tracking-wider">Aksi
-                        </th>
-                    </tr>
-                </thead>
+        <div class="bg-white dark:bg-darkcard rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+                
+                <div class="relative w-full sm:w-72">
+                    <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-gray-400"></i>
+                    <input type="text" id="searchUser" placeholder="Cari Nama / Email..." 
+                        class="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                </div>
 
-                <tbody id="userTableBody" class="block md:table-row-group space-y-4 md:space-y-0 p-4 md:p-0">
-                </tbody>
-            </table>
+                <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                        Total: <span id="totalUsersCount" class="text-indigo-600 dark:text-indigo-400">0</span> User
+                    </span>
+
+                    <button id="btnRefreshUsers"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span id="refreshText">Refresh Data</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-800 hidden md:table-header-group">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User Profile</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role Access</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Verifikasi</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Kontrol</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody" class="bg-white dark:bg-darkcard divide-y divide-gray-200 dark:divide-gray-700">
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-gray-400">
+                                <div class="animate-pulse flex justify-center gap-2">
+                                    <span class="h-2 w-2 bg-gray-400 rounded-full"></span>
+                                    <span class="h-2 w-2 bg-gray-400 rounded-full"></span>
+                                    <span class="h-2 w-2 bg-gray-400 rounded-full"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800/50 p-3 text-center border-t border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-400 flex justify-center items-center gap-1">
+                    <i data-lucide="lock" class="w-3 h-3"></i> Only Super Admin can access this page
+                </p>
+            </div>
         </div>
     </main>
 
     <script type="module">
+        // Import Logic Utama
         import { toggleTheme } from './assets/js/utils/ui.js';
-        import { initAuthGuard } from './assets/js/utils/auth-guard.js';
         import './assets/js/pages/users.js';
+        import { initAuthGuard } from './assets/js/utils/auth-guard.js';
         import { initNavbarProfile } from './assets/js/components/navbar.js';
-
+        
+        // Expose toggleTheme ke window agar tombol onclick berfungsi
         window.toggleTheme = toggleTheme;
-        // 1. Init System
+
+        // Init Icons Awal (Untuk Navbar)
         lucide.createIcons();
-        initAuthGuard({ requireAdmin: false });
+        initAuthGuard({ requireAdmin: true });
         initNavbarProfile();
 
+        // Mobile Menu Toggle
         document.getElementById('mobile-menu-btn')?.addEventListener('click', () => {
-            document.getElementById('mobile-menu').classList.toggle('hidden');
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
         });
-
-        // 3. Theme Logic
-        const btnTheme = document.getElementById('btnTheme');
-        if (btnTheme) {
-            btnTheme.addEventListener('click', () => {
-                toggleTheme();
-            });
-        }
     </script>
 </body>
 
