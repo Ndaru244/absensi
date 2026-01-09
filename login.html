@@ -32,7 +32,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Optimistic UI: Fade in animation */
         .fade-in {
             animation: fadeIn 0.3s ease-in;
         }
@@ -87,7 +86,6 @@
         import { authService } from './assets/js/firebase/auth-service.js';
         import { auth } from './assets/js/firebase/config.js';
 
-        // Initialize auth guard with preventLoginAccess
         initAuthGuard({ preventLoginAccess: true });
 
         lucide.createIcons();
@@ -99,30 +97,25 @@
         const statusMessage = document.getElementById('status-message');
         const statusText = document.getElementById('status-text');
 
-        // OPTIMIZED: Single click handler with debounce
         let isProcessing = false;
 
         btn.addEventListener('click', async () => {
-            if (isProcessing) return; // Prevent double click
+            if (isProcessing) return;
             
             isProcessing = true;
             setLoading(true, "Membuka jendela login...");
 
             try {
-                // Step 1: Login with Google
                 const userData = await authService.loginWithGoogle();
 
                 if (!userData) {
                     throw new Error('Gagal mendapatkan data user');
                 }
 
-                // Step 2: Quick validation from cache (instant!)
                 setLoading(true, "Memverifikasi akun...");
 
-                // Step 3: Redirect based on role
                 if (userData.role === 'admin') {
                     setLoading(true, "Menuju Admin Panel...");
-                    // Small delay for better UX
                     await new Promise(resolve => setTimeout(resolve, 300));
                     window.location.replace('admin.html');
                 } else if (userData.isVerified) {
@@ -130,7 +123,6 @@
                     await new Promise(resolve => setTimeout(resolve, 300));
                     window.location.replace('index.html');
                 } else {
-                    // Unverified user
                     alert("Akun belum diverifikasi Admin.");
                     await authService.logout();
                     resetBtn();
@@ -138,7 +130,6 @@
                 }
 
             } catch (error) {
-                // Handle specific errors
                 if (error.code === 'auth/popup-closed-by-user') {
                     console.log("User closed login window");
                 } else if (error.code === 'auth/cancelled-popup-request') {
@@ -174,7 +165,6 @@
             setLoading(false);
         }
 
-        // Preload destination pages for faster navigation
         const preloadLinks = ['admin.html', 'index.html'];
         preloadLinks.forEach(href => {
             const link = document.createElement('link');

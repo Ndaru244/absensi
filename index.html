@@ -132,14 +132,22 @@
 
             <div id="actionButtons"
                 class="hidden fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-darkcard border-t dark:border-gray-700 md:static md:bg-transparent md:border-none md:p-0 flex flex-col md:flex-row gap-3 justify-end z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] md:shadow-none">
+
                 <button id="btnExport" onclick="exportToPDF()"
                     class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow flex justify-center items-center gap-2">
                     <i data-lucide="file-text" class="w-5 h-5"></i> PDF
                 </button>
+
                 <button id="btnLock"
                     class="flex-1 md:flex-none bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow flex justify-center items-center gap-2">
                     <i data-lucide="lock" class="w-5 h-5"></i> Kunci
                 </button>
+
+                <button id="btnUnlock" style="display: none;"
+                    class="flex-1 md:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-6 rounded-lg shadow flex justify-center items-center gap-2">
+                    <i data-lucide="unlock" class="w-5 h-5"></i> Buka Kunci
+                </button>
+
                 <button id="btnSave" onclick="saveDataToFirestore()"
                     class="flex-[2] md:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex justify-center items-center gap-2">
                     <i data-lucide="save" class="w-5 h-5"></i> SIMPAN
@@ -212,12 +220,10 @@
         import { initNavbarProfile } from './assets/js/components/navbar.js';
 
         window.toggleTheme = toggleTheme;
-        // 1. Init Icons & Auth
         lucide.createIcons();
         initAuthGuard({ requireAdmin: false });
         initNavbarProfile();
 
-        // 2. Event Listeners (Dengan pengecekan null '?' agar tidak error)
         document.getElementById('btnTheme')?.addEventListener('click', toggleTheme);
         document.getElementById('btnThemeDesktop')?.addEventListener('click', toggleTheme);
 
