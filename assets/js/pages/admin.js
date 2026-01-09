@@ -1,5 +1,5 @@
 import { db } from "../firebase/config.js";
-import { doc, getDoc, collection } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import { doc, getDocs, getDoc, collection } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 import { adminService } from "../firebase/admin-service.js";
 import { showToast, showConfirm, initTheme, showCustomModal } from "../utils/ui.js";
 
