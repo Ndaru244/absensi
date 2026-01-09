@@ -113,6 +113,88 @@ const _open = (id, content, cb, title = '') => {
 export const showConfirm = (msg, cb) => _open('custom-modal', msg, cb);
 export const showPrompt = (msg, cb) => _open('custom-prompt', msg, cb);
 
+export function showConfirm(title, onConfirm, description = "") {
+    // 1. Buat Element Modal
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in transition-opacity opacity-0';
+    
+    // 2. Isi HTML Modal
+    modal.innerHTML = `
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-200">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                </div>
+                
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                    ${title || "Konfirmasi"}
+                </h3>
+                
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                    ${description || "Apakah Anda yakin ingin melanjutkan tindakan ini?"}
+                </p>
+                
+                <div class="flex gap-3 justify-center">
+                    <button id="btnCancelConfirm" class="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition text-sm">
+                        Batal
+                    </button>
+                    <button id="btnYesConfirm" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-lg shadow-red-200 dark:shadow-none transition text-sm flex justify-center items-center gap-2">
+                        Ya, Lanjutkan
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 3. Pasang ke Body
+    document.body.appendChild(modal);
+    
+    // Animasi Masuk (Perlu delay sedikit agar transition jalan)
+    requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.querySelector('div').classList.remove('scale-95');
+        modal.querySelector('div').classList.add('scale-100');
+    });
+
+    if(window.lucide) lucide.createIcons({ root: modal });
+
+    // 4. Event Handlers
+    const btnCancel = modal.querySelector('#btnCancelConfirm');
+    const btnYes = modal.querySelector('#btnYesConfirm');
+    
+    // Fokus ke tombol batal (UX Safety)
+    btnCancel.focus();
+
+    const closeModal = () => {
+        modal.classList.add('opacity-0');
+        modal.querySelector('div').classList.remove('scale-100');
+        modal.querySelector('div').classList.add('scale-95');
+        setTimeout(() => modal.remove(), 200);
+    };
+
+    btnCancel.onclick = closeModal;
+    
+    // Klik area gelap untuk tutup
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModal();
+    };
+
+    btnYes.onclick = async () => {
+        // Efek Loading di tombol
+        btnYes.innerHTML = `<span class="animate-spin inline-block">↻</span> Proses...`;
+        btnYes.disabled = true;
+        btnCancel.disabled = true;
+
+        try {
+            await onConfirm(); // Jalankan fungsi callback (Parameter 2)
+        } catch (e) {
+            console.error(e);
+        } finally {
+            closeModal();
+        }
+    };
+}
+
 // Export Fungsi Baru
 export const showCustomModal = (title, htmlContent, onSave) => _open('custom-html', htmlContent, onSave, title);
 export const showToast = (msg, type = 'info') => {

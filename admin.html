@@ -128,28 +128,35 @@
                     </h2>
                     <button onclick="window.openClassManager()"
                         class="text-xs font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1 border border-blue-200 dark:border-gray-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition">
-                        <i data-lucide="settings-2" class="w-3 h-3"></i> Lihat Data Kelas
+                        <i data-lucide="settings-2" class="w-3 h-3"></i> Kelola & Anggota
                     </button>
                 </div>
 
                 <div class="space-y-4">
                     <div class="relative">
-                        <i data-lucide="hash" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
-                        <input type="text" id="inputKelasID" placeholder="Buat Kelas Baru (Contoh: X-RPL)"
-                            class="w-full pl-10 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 uppercase focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <i data-lucide="type" class="absolute left-3 top-3 w-5 h-5 text-gray-400"></i>
+                        <input type="text" id="inputNamaKelas" placeholder="Nama Kelas (Contoh: X RPL 1)"
+                            class="w-full pl-10 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500 outline-none transition">
                     </div>
+
+                    <div
+                        class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded border border-gray-200 dark:border-gray-600">
+                        <input type="checkbox" id="isKhususCheck" class="w-5 h-5 accent-indigo-600 cursor-pointer">
+                        <div>
+                            <label for="isKhususCheck"
+                                class="font-bold text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                Kelas Khusus / Mapel?
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Centang jika ini kelas gabungan
+                                (Agama/Olahraga)</p>
+                        </div>
+                    </div>
+
                     <button id="btnSaveKelas"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow flex justify-center items-center gap-2 transition active:scale-95">
                         <i data-lucide="plus-circle" class="w-5 h-5"></i> Simpan Kelas
                     </button>
                 </div>
-            </div>
-
-            <div
-                class="bg-blue-50 dark:bg-slate-800 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-900 flex gap-3">
-                <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
-                <p><strong>Tips:</strong> Gunakan tombol "Atur & Refresh" di atas jika data kelas tidak muncul
-                    (sinkronisasi data).</p>
             </div>
         </section>
 
