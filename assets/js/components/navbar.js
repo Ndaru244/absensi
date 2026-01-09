@@ -2,7 +2,6 @@ import { profileService } from '../firebase/profile-service.js';
 import { authService } from '../firebase/auth-service.js';
 
 // ===== HELPER: ROLE UI CONFIG =====
-// Menyamakan warna badge dengan halaman Users Management
 function getRoleMetadata(role) {
     switch (role) {
         case 'super_admin':
@@ -17,7 +16,7 @@ function getRoleMetadata(role) {
                 badge: 'bg-indigo-100 text-indigo-700 border-indigo-200',
                 icon: 'shield-check'
             };
-        case 'guru': // TAMBAHAN BARU
+        case 'guru':
             return {
                 label: 'GURU',
                 badge: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -60,7 +59,6 @@ function renderProfileButton(profile) {
     const avatarUrl = profileService.getAvatarUrl(profile);
     const displayName = profileService.getDisplayName(profile);
     
-    // Ambil metadata role (Warna & Label)
     const { label, badge, icon } = getRoleMetadata(profile.role);
 
     profileContainer.innerHTML = `
@@ -164,12 +162,10 @@ function setupProfileDropdown() {
 
     if (!btn || !dropdown) return;
 
-    // Toggle dropdown with animation classes
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (dropdown.classList.contains('hidden')) {
             dropdown.classList.remove('hidden');
-            // Sedikit delay untuk animasi opacity
             setTimeout(() => {
                 dropdown.classList.remove('opacity-0', 'scale-95');
                 dropdown.classList.add('opacity-100', 'scale-100');
@@ -187,7 +183,6 @@ function setupProfileDropdown() {
         }, 100);
     }
 
-    // Close on outside click
     document.addEventListener('click', (e) => {
         if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
             closeDropdown();
@@ -210,17 +205,17 @@ function renderFallbackProfile() {
     }
 }
 
-// ===== GLOBAL HANDLERS (Diakses via onclick HTML) =====
+// ===== GLOBAL HANDLERS =====
 
 window.refreshProfile = async () => {
     const btn = document.querySelector('#profile-dropdown-btn i[data-lucide="chevron-down"]');
-    if(btn) btn.classList.add('animate-spin'); // Visual feedback
+    if(btn) btn.classList.add('animate-spin');
     
     try {
-        const profile = await profileService.getCurrentUserProfile(true); // Force Refresh
+        const profile = await profileService.getCurrentUserProfile(true);
         renderProfileButton(profile);
         renderMobileProfile(profile);
-        setupProfileDropdown(); // Re-attach listeners
+        setupProfileDropdown();
 
         if (window.showToast) window.showToast('Profile data diperbarui', 'success');
     } catch (error) {
@@ -229,7 +224,6 @@ window.refreshProfile = async () => {
 };
 
 window.handleLogout = async () => {
-    // Gunakan showConfirm dari ui.js jika tersedia, fallback ke confirm bawaan
     const action = async () => {
         profileService.clearCache();
         await authService.logout();

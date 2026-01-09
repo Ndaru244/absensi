@@ -69,13 +69,13 @@ export const profileService = {
             if (!forceRefresh) {
                 const cached = ProfileCache.get(uid);
                 if (cached) {
-                    console.log('✅ Profile loaded from cache');
+                    console.log('Profile loaded from cache');
                     return cached;
                 }
             }
 
             // Fetch from Firestore
-            console.log('🔄 Fetching profile from Firebase...');
+            console.log('Fetching profile from Firebase...');
             const userDoc = await getDoc(doc(db, "users", uid));
 
             if (!userDoc.exists()) {

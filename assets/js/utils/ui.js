@@ -110,15 +110,13 @@ const _open = (id, content, cb, title = '') => {
     }, 10);
 };
 
-export const showConfirm = (msg, cb) => _open('custom-modal', msg, cb);
+// export const showConfirm = (msg, cb) => _open('custom-modal', msg, cb);
 export const showPrompt = (msg, cb) => _open('custom-prompt', msg, cb);
 
 export function showConfirm(title, onConfirm, description = "") {
-    // 1. Buat Element Modal
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in transition-opacity opacity-0';
-    
-    // 2. Isi HTML Modal
+
     modal.innerHTML = `
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-200">
             <div class="p-6 text-center">
@@ -146,23 +144,19 @@ export function showConfirm(title, onConfirm, description = "") {
         </div>
     `;
 
-    // 3. Pasang ke Body
     document.body.appendChild(modal);
-    
-    // Animasi Masuk (Perlu delay sedikit agar transition jalan)
+
     requestAnimationFrame(() => {
         modal.classList.remove('opacity-0');
         modal.querySelector('div').classList.remove('scale-95');
         modal.querySelector('div').classList.add('scale-100');
     });
 
-    if(window.lucide) lucide.createIcons({ root: modal });
+    if (window.lucide) lucide.createIcons({ root: modal });
 
-    // 4. Event Handlers
     const btnCancel = modal.querySelector('#btnCancelConfirm');
     const btnYes = modal.querySelector('#btnYesConfirm');
-    
-    // Fokus ke tombol batal (UX Safety)
+
     btnCancel.focus();
 
     const closeModal = () => {
@@ -173,20 +167,18 @@ export function showConfirm(title, onConfirm, description = "") {
     };
 
     btnCancel.onclick = closeModal;
-    
-    // Klik area gelap untuk tutup
+
     modal.onclick = (e) => {
         if (e.target === modal) closeModal();
     };
 
     btnYes.onclick = async () => {
-        // Efek Loading di tombol
         btnYes.innerHTML = `<span class="animate-spin inline-block">↻</span> Proses...`;
         btnYes.disabled = true;
         btnCancel.disabled = true;
 
         try {
-            await onConfirm(); // Jalankan fungsi callback (Parameter 2)
+            await onConfirm();
         } catch (e) {
             console.error(e);
         } finally {
@@ -198,7 +190,6 @@ export function showConfirm(title, onConfirm, description = "") {
 // Export Fungsi Baru
 export const showCustomModal = (title, htmlContent, onSave) => _open('custom-html', htmlContent, onSave, title);
 export const showToast = (msg, type = 'info') => {
-    // Implementasi Toast sederhana (opsional jika belum ada)
     const div = document.createElement('div');
     div.className = `fixed top-4 right-4 z-[100] px-6 py-3 rounded-lg shadow-lg text-white font-medium transform transition-all duration-300 translate-y-[-20px] opacity-0 ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
     div.innerText = msg;

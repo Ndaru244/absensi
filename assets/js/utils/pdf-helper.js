@@ -101,7 +101,6 @@ const drawLetterhead = (doc) => {
   return 55;
 };
 
-// [UPDATED] Helper: Tanda Tangan Dinamis
 // Helper: Menggambar Tanda Tangan
 const drawSignatures = (doc, startY, guruPiket, kepalaSekolah) => {
   if (startY > 250) {
@@ -148,7 +147,6 @@ const drawSignatures = (doc, startY, guruPiket, kepalaSekolah) => {
 // ==========================================
 // 1. EXPORT HARIAN (Portrait)
 // ==========================================
-// [UPDATED] Menerima properti guruPiket & kepalaSekolah dari parameter 'data'
 export const exportToPDF = (payload, kls) => {
   // 1. Ambil data dari payload menggunakan Destructuring yang benar
   const { tanggal, siswa, guruPiket, kepalaSekolah } = payload;
@@ -189,7 +187,7 @@ export const exportToPDF = (payload, kls) => {
     startY: kopEndY + 35,
     head: [["No", "NIS", "Nama Siswa", "Status", "Keterangan"]],
     body: body,
-    ...bwStyle, // Pastikan variabel bwStyle didefinisikan di luar fungsi ini
+    ...bwStyle,
     columnStyles: {
       0: { cellWidth: 10 },
       1: { cellWidth: 25, halign: "left" },
@@ -209,7 +207,6 @@ export const exportToPDF = (payload, kls) => {
 // ==========================================
 // 2. EXPORT BULANAN (Landscape)
 // ==========================================
-// [UPDATED] Parameter ke-5 adalah objek opsi untuk tanda tangan
 export const exportMonthlyPDF = (
   master,
   reports,
@@ -217,7 +214,7 @@ export const exportMonthlyPDF = (
   kls,
   { guruPiket, kepalaSekolah } = {}
 ) => {
-  const doc = createPDFDoc(true); // Landscape
+  const doc = createPDFDoc(true);
   if (!doc) return;
 
   const pageWidth = doc.internal.pageSize.width;
@@ -242,7 +239,6 @@ export const exportMonthlyPDF = (
   const days = new Date(month.split("-")[0], month.split("-")[1], 0).getDate();
   const map = {};
 
-  // Perbaikan Mapping: Gunakan split agar lebih akurat mengambil hari
   reports.forEach((r) => {
     const d = parseInt(r.tanggal.split("-")[2]);
     Object.entries(r.siswa).forEach(([id, s]) => {
@@ -323,7 +319,7 @@ export const exportMonthlyPDF = (
         const val = data.cell.raw;
         if (["S", "I", "A"].includes(val)) {
           data.cell.styles.fontStyle = "bold";
-          data.cell.styles.textColor = [200, 0, 0]; // Penekanan visual merah
+          data.cell.styles.textColor = [200, 0, 0];
         }
       }
     },

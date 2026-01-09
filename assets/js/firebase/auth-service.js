@@ -84,12 +84,12 @@ export const authService = {
     if (useCache) {
       const cached = LoginCache.get(uid);
       if (cached) {
-        console.log("✅ User data from cache");
+        console.log("User data from cache");
         return cached;
       }
     }
 
-    console.log("🔄 Fetching user data from Firebase...");
+    console.log("Fetching user data from Firebase...");
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
 
@@ -111,7 +111,7 @@ export const authService = {
       // Check cache first
       const cachedData = LoginCache.get(user.uid);
       if (cachedData) {
-        console.log("✅ Login using cached data");
+        console.log("Login using cached data");
         return cachedData;
       }
 
@@ -138,10 +138,10 @@ export const authService = {
         while (retries > 0) {
           const verifySnap = await getDoc(userRef);
           if (verifySnap.exists()) {
-            console.log("✅ User document created successfully");
+            console.log("User document created successfully");
             break;
           }
-          console.warn(`⚠️ Retrying document verification (${3 - retries + 1}/3)...`);
+          console.warn(`Retrying document verification (${3 - retries + 1}/3)...`);
           await new Promise(resolve => setTimeout(resolve, 200));
           retries--;
         }

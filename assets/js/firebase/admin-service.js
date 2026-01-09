@@ -35,7 +35,7 @@ const CacheManager = {
 
 export const adminService = {
 
-    // 1. DATA KELAS (FIXED)
+    // 1. DATA KELAS
     async getClasses(forceRefresh = false) {
         const cacheKey = 'classes';
         
@@ -46,15 +46,13 @@ export const adminService = {
             }
         }
 
-        console.log("🔄 Mengambil Data Kelas dari Firebase...");
+        console.log("Mengambil Data Kelas dari Firebase...");
         try {
-            // [FIX] Hapus orderBy("id") karena field 'id' tidak tersimpan di dokumen
-            // Kita ambil semua data, nanti disortir di admin.js / index.js
             const q = query(collection(db, "kelas")); 
             const snap = await getDocs(q);
             
             if (snap.empty) {
-                console.warn("⚠️ Data Kelas Kosong di Firebase!");
+                console.warn("Data Kelas Kosong di Firebase!");
                 return []; 
             }
 
@@ -65,7 +63,6 @@ export const adminService = {
                 is_khusus: d.data().is_khusus === true
             }));
 
-            // [OPSIONAL] Sortir disini biar rapi sebelum masuk cache
             data.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
 
             CacheManager.set(cacheKey, data);
@@ -89,7 +86,6 @@ export const adminService = {
         await setDoc(docRef, { 
             nama_kelas: nama || id, 
             is_khusus: isKhusus 
-            // Kita tidak perlu simpan field 'id' karena sudah jadi ID Dokumen
         });
         CacheManager.remove('classes'); 
     },
@@ -99,9 +95,8 @@ export const adminService = {
         CacheManager.remove('classes');
     },
 
-    // 2. DATA SISWA (Dual Mode: Reguler & Khusus)
+    // 2. DATA SISWA
     async getSiswaByKelas(kelasId) {
-        // Ambil info kelas dari cache (tanpa request DB tambahan)
         const allClasses = await this.getClasses();
         const targetClass = allClasses.find(c => c.id === kelasId);
         const isSpecial = targetClass ? targetClass.is_khusus : false;
@@ -125,7 +120,7 @@ export const adminService = {
                     id: d.id,
                     nama: d.data().nama_siswa || "Tanpa Nama",
                     nis: d.data().nis || "-",
-                    id_kelas: d.data().id_kelas // Info kelas asal
+                    id_kelas: d.data().id_kelas
                 }))
                 .sort((a, b) => a.nama.localeCompare(b.nama));
 
@@ -183,6 +178,24 @@ export const adminService = {
             });
         });
         await batch.commit();
+    },
+    async moveStudentBatch(studentIds, newClassId) {
+        if (!studentIds || studentIds.length === 0) return;
+        
+        const batch = writeBatch(db);
+        const timestamp = Date.now();
+
+        studentIds.forEach(id => {
+            const ref = doc(db, "siswa", id);
+            batch.update(ref, { 
+                id_kelas: newClassId,
+                updated_at: timestamp 
+            });
+        });
+
+        await batch.commit();
+        
+        CacheManager.clear(); 
     },
 
     async deleteStudent(id, kelasId) {

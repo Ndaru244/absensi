@@ -17,6 +17,7 @@ let state = {
   currentUser: {
     nama: "Memuat...",
     nip: "-",
+    role: "viewer"
   },
   kepalaSekolah: {
     nama: "..........................",
@@ -26,35 +27,43 @@ let state = {
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
+    console.log("🔐 Auth Detected:", user.email);
     try {
       const [userSnap, kepsekSnap] = await Promise.all([
         getDoc(doc(db, "users", user.uid)),
         getDoc(doc(db, "settings", "kepala_sekolah")),
       ]);
 
+      // Set Role
       if (userSnap.exists()) {
         const uData = userSnap.data();
         state.currentUser = {
           nama: uData.nama || user.displayName || "Guru Piket",
           nip: uData.nip || "-",
+          role: uData.role || "viewer"
         };
+        console.log(`✅ User Role Loaded: ${state.currentUser.role}`);
       } else {
-        state.currentUser = { nama: user.displayName || "Admin", nip: "-" };
+        console.warn("⚠️ Data User tidak ditemukan di Firestore, set default viewer.");
+        state.currentUser.role = "viewer";
       }
 
+      // Set Kepsek
       if (kepsekSnap.exists()) {
-        const kData = kepsekSnap.data();
-        state.kepalaSekolah = {
-          nama: kData.nama || "..........................",
-          nip: kData.nip || "..........................",
-        };
-      } else {
-        console.warn("Data settings/kepala_sekolah belum dibuat di Firestore!");
+        state.kepalaSekolah = kepsekSnap.data();
       }
+
+      // Refresh UI jika data absensi sudah terbuka
+      if (state.localData) {
+        console.log("🔄 Refreshing UI Lock State...");
+        handleLockState();
+      }
+
     } catch (e) {
-      console.error("Gagal ambil data profil/settings:", e);
-      showToast("Gagal memuat data profil", "error");
+      console.error("Auth Error:", e);
     }
+  } else {
+    console.log("User Logged Out");
   }
 });
 
@@ -124,62 +133,35 @@ window.exportToPDF = () => {
 window.loadRekapData = async () => {
   const datePicker = document.getElementById("datePicker");
   const kelasPicker = document.getElementById("kelasPicker");
-
   if (!datePicker || !kelasPicker) return;
-
   const tgl = datePicker.value;
   const kls = kelasPicker.value;
-
   if (!tgl || !kls) return showToast("Pilih Tanggal & Kelas!", "warning");
-
   const newDocId = `${tgl}_${kls}`;
   if (state.localData && state.currentDocId === newDocId) return;
-
   state.currentDocId = newDocId;
   const loading = document.getElementById("loadingText");
   const tabelAbsensi = document.getElementById("tabelAbsensi");
-
-  if (loading) {
-    loading.style.display = "block";
-    loading.innerText = "⏳ Mengambil data...";
-  }
+  if (loading) { loading.style.display = "block"; loading.innerText = "⏳ Mengambil data..."; }
   if (tabelAbsensi) tabelAbsensi.classList.add("hidden");
-
   try {
-    if (
-      !(
-        state.isDirty &&
-        state.localData?.tanggal === tgl &&
-        state.localData?.kelas === kls
-      )
-    ) {
+    if (!(state.isDirty && state.localData?.tanggal === tgl && state.localData?.kelas === kls)) {
       let data = await attendanceService.getRekap(state.currentDocId);
-
       if (!data) {
         const master = await attendanceService.getMasterSiswa(kls);
-        if (!Object.keys(master).length)
-          throw new Error("Kelas Kosong / Belum ada Siswa");
-
-        data = {
-          tanggal: tgl,
-          kelas: kls,
-          siswa: master,
-          is_locked: false,
-        };
-        setDirty(true);
+        if (!Object.keys(master).length) throw new Error("Kelas Kosong / Belum ada Siswa");
+        data = { tanggal: tgl, kelas: kls, siswa: master, is_locked: false };
         showToast("Lembar absensi baru dibuat", "info");
       }
       state.localData = data;
+      state.isDirty = false; // Reset dirty saat load baru
     }
-
     if (loading) loading.style.display = "none";
     if (tabelAbsensi) tabelAbsensi.classList.remove("hidden");
-
-    const actionButtons = document.getElementById("actionButtons");
-    if (actionButtons) actionButtons.classList.remove("hidden");
+    document.getElementById("actionButtons")?.classList.remove("hidden");
 
     renderTable();
-    handleLockState();
+    handleLockState(); // Cek status kunci
   } catch (e) {
     if (loading) loading.innerText = "Error: " + e.message;
     showToast(e.message, "error");
@@ -206,36 +188,32 @@ function renderTable() {
       return `
             <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition group">
                 <td class="p-4 align-top">
-                    <div class="font-bold text-gray-800 dark:text-gray-200">${
-                      s.nama
-                    }</div>
-                    <div class="text-xs text-gray-500 font-mono">${
-                      s.nis || "-"
-                    }</div>
+                    <div class="font-bold text-gray-800 dark:text-gray-200">${s.nama
+        }</div>
+                    <div class="text-xs text-gray-500 font-mono">${s.nis || "-"
+        }</div>
                     ${ketBadge}
                 </td>
                 <td class="p-4 align-top">
                     <div class="flex flex-wrap gap-2">
                         ${["Hadir", "Sakit", "Izin", "Alpa"]
-                          .map(
-                            (st) => `
+          .map(
+            (st) => `
                                 <button onclick="updateStatus('${id}', '${st}')" 
                                     class="px-3 py-1.5 rounded-lg text-xs font-bold border shadow-sm transition-all transform active:scale-95 flex items-center gap-1 
-                                    ${
-                                      s.status === st
-                                        ? _getColor(st)
-                                        : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-600 dark:hover:text-gray-200"
-                                    }">
-                                    ${
-                                      st === "Hadir" && s.status === "Hadir"
-                                        ? '<i data-lucide="check" class="w-3 h-3"></i>'
-                                        : ""
-                                    } 
+                                    ${s.status === st
+                ? _getColor(st)
+                : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-600 dark:hover:text-gray-200"
+              }">
+                                    ${st === "Hadir" && s.status === "Hadir"
+                ? '<i data-lucide="check" class="w-3 h-3"></i>'
+                : ""
+              } 
                                     ${st}
                                 </button>
                             `
-                          )
-                          .join("")}
+          )
+          .join("")}
                     </div>
                 </td>
             </tr>`;
@@ -316,10 +294,10 @@ window.saveDataToFirestore = () =>
 
       showToast("Data berhasil disimpan!", "success");
       setDirty(false);
-      
+
       // Clear monthly cache state (force reload next time)
       state.monthlyCache = null;
-      
+
     } catch (e) {
       showToast(e.message, "error");
     } finally {
@@ -336,18 +314,54 @@ function setDirty(val) {
 }
 
 function handleLockState() {
+  // Jika belum ada data absensi, tidak perlu cek kunci
   if (!state.localData) return;
 
   const isLocked = state.localData.is_locked;
-  const lockedMessage = document.getElementById("lockedMessage");
+
   const btnSave = document.getElementById("btnSave");
   const btnLock = document.getElementById("btnLock");
+  const btnUnlock = document.getElementById("btnUnlock");
   const btnPdf = document.getElementById("btnExport");
+  const lockedMsg = document.getElementById("lockedMessage");
 
-  if (lockedMessage) lockedMessage.classList.toggle("hidden", !isLocked);
+  // Tampilkan Pesan Terkunci
+  if (lockedMsg) lockedMsg.classList.toggle("hidden", !isLocked);
+
+  // 1. Logika Tombol SIMPAN & KUNCI
   if (btnSave) btnSave.style.display = isLocked ? "none" : "flex";
   if (btnLock) btnLock.style.display = isLocked ? "none" : "flex";
 
+  // 2. Logika Tombol BUKA KUNCI (Super Admin & Admin Only)
+  if (btnUnlock) {
+    const myRole = state.currentUser.role;
+    const isAuthorized = ['admin', 'super_admin'].includes(myRole);
+
+    // LOG DEBUGGING PENTING (Cek Console F12)
+    console.log(`🔍 DEBUG LOCK: Locked=${isLocked} | Role=${myRole} | Allow=${isAuthorized}`);
+
+    if (isLocked && isAuthorized) {
+      btnUnlock.style.display = "flex"; // TAMPILKAN
+      btnUnlock.onclick = () => {
+        showConfirm("Buka Kunci Data? Guru akan bisa mengedit kembali.", async () => {
+          try {
+            await attendanceService.unlockRekap(state.currentDocId);
+            state.localData.is_locked = false;
+            handleLockState();
+            showToast("Data berhasil dibuka kembali", "success");
+          } catch (e) {
+            showToast("Gagal: " + e.message, "error");
+          }
+        });
+      };
+    } else {
+      btnUnlock.style.display = "none";
+    }
+  } else {
+    console.error("HTML Error: Button id='btnUnlock' tidak ditemukan!");
+  }
+
+  // 3. Logika Tombol PDF
   if (btnPdf) {
     if (isLocked) {
       btnPdf.classList.remove("opacity-50", "cursor-not-allowed");
@@ -359,28 +373,34 @@ function handleLockState() {
   }
 }
 
+const btnUnlock = document.getElementById("btnUnlock");
+if (btnUnlock) {
+  btnUnlock.onclick = () => {
+    showConfirm("Buka Kunci Data? Guru akan bisa mengedit kembali.", async () => {
+      try {
+        await attendanceService.unlockRekap(state.currentDocId);
+        state.localData.is_locked = false;
+        handleLockState();
+        showToast("Data berhasil dibuka kembali", "success");
+      } catch (e) {
+        showToast("Gagal membuka kunci: " + e.message, "error");
+      }
+    });
+  };
+}
+
 const btnLock = document.getElementById("btnLock");
 if (btnLock) {
   btnLock.onclick = () => {
     if (!state.localData || !state.currentDocId) return;
-
-    if (state.isDirty) {
-      return showToast("Simpan perubahan dulu!", "warning");
-    }
-
-    showConfirm(
-      "Kunci data permanen? Data tidak bisa diedit lagi.",
-      async () => {
-        await attendanceService.lockRekap(state.currentDocId);
-        state.localData.is_locked = true;
-        
-        // Clear monthly cache state
-        state.monthlyCache = null;
-        
-        handleLockState();
-        showToast("Data terkunci", "success");
-      }
-    );
+    if (state.isDirty) return showToast("Simpan perubahan dulu!", "warning");
+    showConfirm("Kunci data permanen?", async () => {
+      await attendanceService.lockRekap(state.currentDocId);
+      state.localData.is_locked = true;
+      state.monthlyCache = null;
+      handleLockState();
+      showToast("Data terkunci", "success");
+    });
   };
 }
 
@@ -516,11 +536,11 @@ window.loadMonthlyReport = async () => {
       .join("");
 
     if (btnPrint) btnPrint.style.display = "flex";
-    
+
     showToast("Data monthly berhasil dimuat", "success");
   } catch (e) {
     console.error("Monthly Load Error:", e);
-    tbody.innerHTML = `<tr><td colspan="40" class="p-4 text-center text-red-500">❌ ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="40" class="p-4 text-center text-red-500"> ${e.message}</td></tr>`;
     showToast("Gagal memuat data monthly", "error");
   }
 };

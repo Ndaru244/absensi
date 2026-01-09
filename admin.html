@@ -315,7 +315,6 @@
         import { initNavbarProfile } from './assets/js/components/navbar.js';
 
         window.toggleTheme = toggleTheme;
-        // 1. Init System
         lucide.createIcons();
         initAuthGuard({ requireAdmin: false });
         initNavbarProfile();
@@ -324,7 +323,6 @@
             document.getElementById('mobile-menu').classList.toggle('hidden');
         });
 
-        // 3. Theme Logic
         const btnTheme = document.getElementById('btnTheme');
         if (btnTheme) {
             btnTheme.addEventListener('click', () => {
